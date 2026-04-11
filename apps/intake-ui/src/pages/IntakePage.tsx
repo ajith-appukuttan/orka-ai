@@ -54,7 +54,7 @@ export function IntakePage() {
   } = useWorkspaces(TENANT_ID);
   const { messages, send, logMessage, isSending, isStreaming, streamingContent } =
     useChat(activeSessionId);
-  const { draft, readinessScore } = useDraft(activeSessionId);
+  const { draft, readinessScore } = useDraft(activeSessionId, activeWorkspaceId);
   const { items: memoryItems, archive: archiveMemory } = useMemory(activeWorkspaceId);
   const { results: searchResults, loading: searchLoading, search } = useSearch(TENANT_ID);
   const visual = useVisualIntake(activeWorkspaceId);
@@ -269,7 +269,7 @@ export function IntakePage() {
 
   const handleReview = useCallback(() => {
     if (activeSessionId) {
-      navigate(`/review/${activeSessionId}`);
+      navigate(`/review/${activeWorkspaceId}/${activeSessionId}`);
     }
   }, [activeSessionId, navigate]);
 
@@ -289,12 +289,13 @@ export function IntakePage() {
 
   return (
     <Group h="100vh" gap={0} align="stretch" wrap="nowrap">
-      {/* Sidebar — collapsible */}
+      {/* Sidebar — collapsible, distinct background */}
       <Box
         style={{
           width: sidebarOpen ? SIDEBAR_WIDTH : 44,
           flexShrink: 0,
           borderRight: `1px solid ${themedColor('borderColor')}`,
+          background: themedColor('sidebarBg'),
           overflow: 'hidden',
           transition: 'width 200ms ease',
           display: 'flex',
@@ -404,8 +405,8 @@ export function IntakePage() {
         )}
       </Box>
 
-      {/* Main content area */}
-      <Box flex={1} style={{ overflow: 'hidden' }}>
+      {/* Main content area — distinct from sidebar */}
+      <Box flex={1} style={{ overflow: 'hidden', background: themedColor('chatBg') }}>
         {!activeSessionId ? (
           <WelcomeScreen onStart={handleStart} isLoading={false} />
         ) : (
@@ -418,9 +419,20 @@ export function IntakePage() {
               style={{ borderBottom: `1px solid ${themedColor('borderColor')}`, flexShrink: 0 }}
             >
               <Group gap="md">
-                <Text size="xs" c="dimmed" truncate style={{ maxWidth: 200 }}>
-                  {workspaces.find((w) => w.id === activeWorkspaceId)?.title ?? 'Session'}
-                </Text>
+                <Group gap={6}>
+                  <Box
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: '#10a37f',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Text size="xs" fw={600} truncate style={{ maxWidth: 200 }}>
+                    {workspaces.find((w) => w.id === activeWorkspaceId)?.title ?? 'Session'}
+                  </Text>
+                </Group>
                 <SegmentedControl
                   size="xs"
                   value={intakeMode}

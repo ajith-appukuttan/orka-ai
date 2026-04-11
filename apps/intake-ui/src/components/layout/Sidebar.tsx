@@ -111,7 +111,14 @@ export function Sidebar({
   return (
     <Stack h="100%" gap={0}>
       {/* Branding */}
-      <Box px="sm" py="xs" style={{ borderBottom: `1px solid ${themedColor('borderColor')}` }}>
+      <Box
+        px="sm"
+        py="xs"
+        style={{
+          borderBottom: `1px solid ${themedColor('borderColor')}`,
+          background: themedColor('sidebarHeaderBg'),
+        }}
+      >
         <Group justify="space-between" align="center" mb={8}>
           <Group gap="xs">
             <Box
@@ -227,166 +234,218 @@ export function Sidebar({
         )}
 
         {!isSearching &&
-          workspaces.map((ws) => {
-            const isExpanded = expandedWorkspaces.has(ws.id);
-            const isActiveWs = ws.id === activeWorkspaceId;
+          [...workspaces]
+            .sort((a, b) => {
+              // Active workspace always first
+              if (a.id === activeWorkspaceId) return -1;
+              if (b.id === activeWorkspaceId) return 1;
+              return 0; // keep original order otherwise
+            })
+            .map((ws) => {
+              const isExpanded = expandedWorkspaces.has(ws.id);
+              const isActiveWs = ws.id === activeWorkspaceId;
 
-            return (
-              <Box key={ws.id} style={{ position: 'relative' }} className="workspace-item">
-                <NavLink
-                  label={
-                    <Group gap={6} wrap="nowrap">
-                      <Text size="sm" truncate style={{ flex: 1 }}>
-                        {ws.title}
-                      </Text>
-                      {ws.readinessScore !== null && ws.readinessScore > 0 && (
-                        <Badge
-                          size="xs"
-                          variant="dot"
-                          color={ws.readinessScore >= 0.8 ? 'teal' : 'blue'}
-                        >
-                          {Math.round(ws.readinessScore * 100)}%
-                        </Badge>
-                      )}
-                    </Group>
-                  }
-                  description={formatTime(ws.updatedAt)}
-                  opened={isExpanded}
-                  onClick={() => toggleWorkspace(ws.id)}
-                  active={isActiveWs && !activeSessionId}
-                  variant="subtle"
-                  styles={{
-                    root: { borderRadius: 0, padding: '6px 12px', paddingRight: 56 },
-                    label: { fontSize: 13 },
-                    description: { fontSize: 11 },
+              return (
+                <Box
+                  key={ws.id}
+                  style={{
+                    position: 'relative',
+                    borderLeft: isActiveWs ? '3px solid #10a37f' : '3px solid transparent',
+                    background: isActiveWs ? themedColor('sidebarActiveBg') : 'transparent',
+                    transition: 'all 150ms ease',
                   }}
+                  className="workspace-item"
                 >
-                  {/* Workspace action buttons — shown on hover */}
-                  <Group
-                    gap={2}
-                    className="workspace-actions"
-                    style={{
-                      position: 'absolute',
-                      right: 8,
-                      top: 8,
-                      opacity: 0,
-                      transition: 'opacity 150ms ease',
+                  <NavLink
+                    label={
+                      <Group gap={6} wrap="nowrap">
+                        <Text
+                          size="sm"
+                          truncate
+                          fw={isActiveWs ? 600 : 400}
+                          style={{
+                            flex: 1,
+                            color: isActiveWs ? themedColor('sidebarTextActive') : undefined,
+                          }}
+                        >
+                          {ws.title}
+                        </Text>
+                        {ws.readinessScore !== null && ws.readinessScore > 0 && (
+                          <Badge
+                            size="xs"
+                            variant="dot"
+                            color={ws.readinessScore >= 0.8 ? 'teal' : 'blue'}
+                          >
+                            {Math.round(ws.readinessScore * 100)}%
+                          </Badge>
+                        )}
+                      </Group>
+                    }
+                    description={formatTime(ws.updatedAt)}
+                    opened={isExpanded}
+                    onClick={() => {
+                      toggleWorkspace(ws.id);
+                      // If workspace has sessions, select the first one
+                      if (ws.sessions.length > 0 && !isActiveWs) {
+                        onSelectSession(ws.id, ws.sessions[0].id);
+                      }
+                    }}
+                    active={false}
+                    variant="subtle"
+                    styles={{
+                      root: { borderRadius: 0, padding: '6px 12px', paddingRight: 56 },
+                      label: { fontSize: 13 },
+                      description: { fontSize: 11 },
                     }}
                   >
-                    <Tooltip label="New session">
-                      <ActionIcon
-                        size="xs"
-                        variant="subtle"
-                        color="gray"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onNewSession(ws.id);
-                        }}
-                      >
-                        +
-                      </ActionIcon>
-                    </Tooltip>
-                    {onArchiveWorkspace && (
-                      <Tooltip label="Archive workspace">
+                    {/* Workspace action buttons — always visible */}
+                    <Group
+                      gap={2}
+                      style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: 8,
+                      }}
+                    >
+                      <Tooltip label="New session">
                         <ActionIcon
                           size="xs"
                           variant="subtle"
                           color="gray"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (ws.id === activeWorkspaceId) {
-                              onClearSession?.();
-                            }
-                            onArchiveWorkspace(ws.id);
+                            onNewSession(ws.id);
                           }}
                         >
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
+                          +
                         </ActionIcon>
                       </Tooltip>
-                    )}
-                  </Group>
-                  <style>{`
-                  .workspace-item:hover .workspace-actions {
-                    opacity: 1 !important;
-                  }
-                `}</style>
-                  {ws.sessions.map((session) => (
-                    <Box key={session.id} style={{ position: 'relative' }} className="session-item">
-                      <NavLink
-                        label={session.title}
-                        description={formatTime(session.updatedAt)}
-                        active={session.id === activeSessionId}
-                        onClick={() => onSelectSession(ws.id, session.id)}
-                        variant="subtle"
-                        pl="lg"
-                        styles={{
-                          root: { borderRadius: 0, padding: '4px 12px 4px 28px', paddingRight: 32 },
-                          label: { fontSize: 12 },
-                          description: { fontSize: 10 },
-                        }}
-                      />
-                      <Tooltip
-                        label={session.id === activeSessionId ? 'Close session' : 'Archive session'}
-                      >
-                        <ActionIcon
-                          size="xs"
-                          variant="subtle"
-                          color="gray"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (session.id === activeSessionId) {
-                              onClearSession?.();
-                            }
-                            onArchiveSession?.(session.id);
-                          }}
+                      {onArchiveWorkspace && (
+                        <Tooltip label="Archive workspace">
+                          <ActionIcon
+                            size="xs"
+                            variant="subtle"
+                            color="gray"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (ws.id === activeWorkspaceId) {
+                                onClearSession?.();
+                              }
+                              onArchiveWorkspace(ws.id);
+                            }}
+                          >
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </Group>
+
+                    {ws.sessions.map((session) => {
+                      const isActiveSession = session.id === activeSessionId;
+                      return (
+                        <Box
+                          key={session.id}
                           style={{
-                            position: 'absolute',
-                            right: 8,
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            opacity: 0,
-                            transition: 'opacity 150ms ease',
+                            position: 'relative',
+                            background: isActiveSession
+                              ? themedColor('sidebarActiveBg')
+                              : 'transparent',
                           }}
-                          className="session-close-btn"
+                          className="session-item"
                         >
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                          <NavLink
+                            label={
+                              <Text
+                                size="xs"
+                                fw={isActiveSession ? 600 : 400}
+                                style={{
+                                  color: isActiveSession
+                                    ? themedColor('sidebarTextActive')
+                                    : undefined,
+                                }}
+                              >
+                                {session.title}
+                              </Text>
+                            }
+                            description={formatTime(session.updatedAt)}
+                            active={false}
+                            onClick={() => onSelectSession(ws.id, session.id)}
+                            variant="subtle"
+                            pl="lg"
+                            styles={{
+                              root: {
+                                borderRadius: 0,
+                                padding: '4px 12px 4px 28px',
+                                paddingRight: 32,
+                              },
+                              description: { fontSize: 10 },
+                            }}
+                          />
+                          <Tooltip
+                            label={
+                              session.id === activeSessionId ? 'Close session' : 'Archive session'
+                            }
                           >
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
-                        </ActionIcon>
-                      </Tooltip>
-                      <style>{`
+                            <ActionIcon
+                              size="xs"
+                              variant="subtle"
+                              color="gray"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (session.id === activeSessionId) {
+                                  onClearSession?.();
+                                }
+                                onArchiveSession?.(session.id);
+                              }}
+                              style={{
+                                position: 'absolute',
+                                right: 8,
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                opacity: 0,
+                                transition: 'opacity 150ms ease',
+                              }}
+                              className="session-close-btn"
+                            >
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </ActionIcon>
+                          </Tooltip>
+                          <style>{`
                         .session-item:hover .session-close-btn {
                           opacity: 1 !important;
                         }
                       `}</style>
-                    </Box>
-                  ))}
-                </NavLink>
-              </Box>
-            );
-          })}
+                        </Box>
+                      );
+                    })}
+                  </NavLink>
+                </Box>
+              );
+            })}
       </ScrollArea>
     </Stack>
   );

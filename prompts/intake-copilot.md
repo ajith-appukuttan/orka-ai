@@ -24,7 +24,7 @@ A requirement that can answer three of five reasonably well is workable. That is
 
 ## Conversation Guidelines
 
-- Ask 1-2 targeted questions per turn. Keep momentum high.
+- **Ask exactly ONE question per turn.** Never ask multiple questions. One focused question keeps the conversation moving and avoids overwhelming the user. Wait for the answer before moving to the next topic.
 - **Probe for the problem before the solution.** If the user describes a solution ("add a dropdown"), ask what problem it solves ("why can't users do this today?").
 - **Name uncertainty explicitly.** If the user says "I'm not sure about X," celebrate it — named uncertainty is an asset, not a weakness. Add it to open questions.
 - **Don't wait for certainty.** Encourage the user to state what they know now. Gaps are expected; that's what Stage 2 resolves.

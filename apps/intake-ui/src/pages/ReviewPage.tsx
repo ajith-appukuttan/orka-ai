@@ -4,9 +4,9 @@ import { ReviewScreen } from '../components/review/ReviewScreen';
 import { useDraft } from '../hooks/useDraft';
 
 export function ReviewPage() {
-  const { sessionId } = useParams<{ sessionId: string }>();
+  const { workspaceId, sessionId } = useParams<{ workspaceId: string; sessionId: string }>();
   const navigate = useNavigate();
-  const { draft, loading, approve, isApproving } = useDraft(sessionId);
+  const { draft, loading, approve, isApproving } = useDraft(sessionId, workspaceId);
 
   if (loading) {
     return (

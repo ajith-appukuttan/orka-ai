@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { ApolloProvider } from '@apollo/client';
 import { MantineProvider } from '@mantine/core';
 import '@mantine/core/styles.css';
+import './markdown.css';
 import { apolloClient } from './graphql/client';
 import { theme, THEME_STORAGE_KEY } from './theme';
 import { App } from './App';
