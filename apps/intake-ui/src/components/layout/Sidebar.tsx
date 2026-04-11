@@ -1,0 +1,393 @@
+import { useState } from 'react';
+import {
+  Stack,
+  Text,
+  NavLink,
+  ActionIcon,
+  Group,
+  TextInput,
+  ScrollArea,
+  Box,
+  Tooltip,
+  Badge,
+  Loader,
+} from '@mantine/core';
+import { useTheme } from '../../hooks/useTheme';
+import { ThemeToggle } from './ThemeToggle';
+
+interface SidebarSession {
+  id: string;
+  title: string;
+  status: string;
+  updatedAt: string;
+}
+
+interface SidebarWorkspace {
+  id: string;
+  title: string;
+  status: string;
+  readinessScore: number | null;
+  updatedAt: string;
+  sessions: SidebarSession[];
+}
+
+interface SearchResult {
+  workspaceId: string;
+  workspaceTitle: string;
+  sessionId: string | null;
+  sessionTitle: string | null;
+  matchType: string;
+  matchText: string;
+}
+
+interface SidebarProps {
+  workspaces: SidebarWorkspace[];
+  loading: boolean;
+  activeSessionId?: string;
+  activeWorkspaceId?: string;
+  onSelectSession: (workspaceId: string, sessionId: string) => void;
+  onNewWorkspace: () => void;
+  onNewSession: (workspaceId: string) => void;
+  onClearSession?: () => void;
+  onArchiveSession?: (sessionId: string) => void;
+  onArchiveWorkspace?: (workspaceId: string) => void;
+  searchResults?: SearchResult[];
+  searchLoading?: boolean;
+  onSearch?: (query: string) => void;
+}
+
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return d.toLocaleDateString();
+}
+
+export function Sidebar({
+  workspaces,
+  loading,
+  activeSessionId,
+  activeWorkspaceId,
+  onSelectSession,
+  onNewWorkspace,
+  onNewSession,
+  onClearSession,
+  onArchiveSession,
+  onArchiveWorkspace,
+  searchResults,
+  searchLoading,
+  onSearch,
+}: SidebarProps) {
+  const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(
+    new Set(activeWorkspaceId ? [activeWorkspaceId] : []),
+  );
+  const [searchQuery, setSearchQuery] = useState('');
+  const { themedColor } = useTheme();
+
+  const isSearching = searchQuery.length > 0;
+
+  const toggleWorkspace = (id: string) => {
+    setExpandedWorkspaces((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    onSearch?.(value);
+  };
+
+  return (
+    <Stack h="100%" gap={0}>
+      {/* Branding */}
+      <Box px="sm" py="xs" style={{ borderBottom: `1px solid ${themedColor('borderColor')}` }}>
+        <Group justify="space-between" align="center" mb={8}>
+          <Group gap="xs">
+            <Box
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: 10,
+                fontWeight: 700,
+              }}
+            >
+              V
+            </Box>
+            <Text size="sm" fw={600}>
+              Virtual PM
+            </Text>
+          </Group>
+          <Group gap={4}>
+            <ThemeToggle />
+            <Tooltip label="New workspace">
+              <ActionIcon size="sm" variant="subtle" color="gray" onClick={onNewWorkspace}>
+                +
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        </Group>
+
+        {/* Search input */}
+        <TextInput
+          size="xs"
+          placeholder="Search..."
+          value={searchQuery}
+          onChange={(e) => handleSearchChange(e.currentTarget.value)}
+          rightSection={
+            searchQuery ? (
+              <ActionIcon size="xs" variant="subtle" onClick={() => handleSearchChange('')}>
+                x
+              </ActionIcon>
+            ) : undefined
+          }
+          styles={{
+            input: { fontSize: 12 },
+          }}
+        />
+      </Box>
+
+      {/* Content */}
+      <ScrollArea flex={1} scrollbarSize={4}>
+        {loading && (
+          <Stack align="center" py="xl">
+            <Loader size="xs" type="dots" />
+          </Stack>
+        )}
+
+        {/* Search results mode */}
+        {isSearching && !loading && (
+          <>
+            {searchLoading && (
+              <Stack align="center" py="md">
+                <Loader size="xs" type="dots" />
+              </Stack>
+            )}
+            {!searchLoading && searchResults && searchResults.length === 0 && (
+              <Text size="xs" c="dimmed" ta="center" py="md" px="sm">
+                No results for "{searchQuery}"
+              </Text>
+            )}
+            {!searchLoading &&
+              searchResults?.map((result, i) => (
+                <NavLink
+                  key={`${result.workspaceId}-${result.sessionId}-${i}`}
+                  label={
+                    <Group gap={4} wrap="nowrap">
+                      <Badge size="xs" variant="outline" color="gray">
+                        {result.matchType}
+                      </Badge>
+                      <Text size="xs" truncate>
+                        {result.workspaceTitle}
+                      </Text>
+                    </Group>
+                  }
+                  description={
+                    <Text size="xs" c="dimmed" lineClamp={2} style={{ fontSize: 10 }}>
+                      {result.matchText}
+                    </Text>
+                  }
+                  onClick={() => {
+                    if (result.sessionId) {
+                      onSelectSession(result.workspaceId, result.sessionId);
+                    }
+                  }}
+                  variant="subtle"
+                  styles={{
+                    root: { borderRadius: 0, padding: '6px 12px' },
+                  }}
+                />
+              ))}
+          </>
+        )}
+
+        {/* Normal workspace tree mode */}
+        {!isSearching && !loading && workspaces.length === 0 && (
+          <Stack align="center" py="xl" px="sm">
+            <Text size="xs" c="dimmed" ta="center">
+              No workspaces yet. Click + to create one.
+            </Text>
+          </Stack>
+        )}
+
+        {!isSearching &&
+          workspaces.map((ws) => {
+            const isExpanded = expandedWorkspaces.has(ws.id);
+            const isActiveWs = ws.id === activeWorkspaceId;
+
+            return (
+              <Box key={ws.id} style={{ position: 'relative' }} className="workspace-item">
+                <NavLink
+                  label={
+                    <Group gap={6} wrap="nowrap">
+                      <Text size="sm" truncate style={{ flex: 1 }}>
+                        {ws.title}
+                      </Text>
+                      {ws.readinessScore !== null && ws.readinessScore > 0 && (
+                        <Badge
+                          size="xs"
+                          variant="dot"
+                          color={ws.readinessScore >= 0.8 ? 'teal' : 'blue'}
+                        >
+                          {Math.round(ws.readinessScore * 100)}%
+                        </Badge>
+                      )}
+                    </Group>
+                  }
+                  description={formatTime(ws.updatedAt)}
+                  opened={isExpanded}
+                  onClick={() => toggleWorkspace(ws.id)}
+                  active={isActiveWs && !activeSessionId}
+                  variant="subtle"
+                  styles={{
+                    root: { borderRadius: 0, padding: '6px 12px', paddingRight: 56 },
+                    label: { fontSize: 13 },
+                    description: { fontSize: 11 },
+                  }}
+                >
+                  {/* Workspace action buttons — shown on hover */}
+                  <Group
+                    gap={2}
+                    className="workspace-actions"
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      top: 8,
+                      opacity: 0,
+                      transition: 'opacity 150ms ease',
+                    }}
+                  >
+                    <Tooltip label="New session">
+                      <ActionIcon
+                        size="xs"
+                        variant="subtle"
+                        color="gray"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNewSession(ws.id);
+                        }}
+                      >
+                        +
+                      </ActionIcon>
+                    </Tooltip>
+                    {onArchiveWorkspace && (
+                      <Tooltip label="Archive workspace">
+                        <ActionIcon
+                          size="xs"
+                          variant="subtle"
+                          color="gray"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (ws.id === activeWorkspaceId) {
+                              onClearSession?.();
+                            }
+                            onArchiveWorkspace(ws.id);
+                          }}
+                        >
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </Group>
+                  <style>{`
+                  .workspace-item:hover .workspace-actions {
+                    opacity: 1 !important;
+                  }
+                `}</style>
+                  {ws.sessions.map((session) => (
+                    <Box key={session.id} style={{ position: 'relative' }} className="session-item">
+                      <NavLink
+                        label={session.title}
+                        description={formatTime(session.updatedAt)}
+                        active={session.id === activeSessionId}
+                        onClick={() => onSelectSession(ws.id, session.id)}
+                        variant="subtle"
+                        pl="lg"
+                        styles={{
+                          root: { borderRadius: 0, padding: '4px 12px 4px 28px', paddingRight: 32 },
+                          label: { fontSize: 12 },
+                          description: { fontSize: 10 },
+                        }}
+                      />
+                      <Tooltip
+                        label={session.id === activeSessionId ? 'Close session' : 'Archive session'}
+                      >
+                        <ActionIcon
+                          size="xs"
+                          variant="subtle"
+                          color="gray"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (session.id === activeSessionId) {
+                              onClearSession?.();
+                            }
+                            onArchiveSession?.(session.id);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            right: 8,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            opacity: 0,
+                            transition: 'opacity 150ms ease',
+                          }}
+                          className="session-close-btn"
+                        >
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </ActionIcon>
+                      </Tooltip>
+                      <style>{`
+                        .session-item:hover .session-close-btn {
+                          opacity: 1 !important;
+                        }
+                      `}</style>
+                    </Box>
+                  ))}
+                </NavLink>
+              </Box>
+            );
+          })}
+      </ScrollArea>
+    </Stack>
+  );
+}

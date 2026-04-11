@@ -1,0 +1,63 @@
+import { Stack, Box, Paper, Text } from '@mantine/core';
+import { MessageList } from './MessageList';
+import { MessageInput } from './MessageInput';
+import { useTheme } from '../../hooks/useTheme';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: string;
+}
+
+interface ChatPanelProps {
+  messages: Message[];
+  onSendMessage: (message: string) => void;
+  isLoading: boolean;
+  isStreaming: boolean;
+  streamingContent: string | null;
+}
+
+export function ChatPanel({
+  messages,
+  onSendMessage,
+  isLoading,
+  isStreaming,
+  streamingContent,
+}: ChatPanelProps) {
+  const { themedColor, contentMaxWidth } = useTheme();
+
+  return (
+    <Stack h="100%" gap={0}>
+      {/* Messages */}
+      <Box flex={1} style={{ overflow: 'hidden' }}>
+        <MessageList
+          messages={messages}
+          isLoading={isLoading && !isStreaming}
+          isStreaming={isStreaming}
+          streamingContent={streamingContent}
+        />
+      </Box>
+
+      {/* Floating input bar at bottom */}
+      <Box px="md" pb="md" pt="xs">
+        <Box maw={contentMaxWidth} mx="auto" w="100%">
+          <Paper
+            radius="xl"
+            p={4}
+            style={{
+              background: themedColor('inputBg'),
+              border: 'none',
+            }}
+          >
+            <MessageInput onSend={onSendMessage} disabled={isLoading || isStreaming} />
+          </Paper>
+
+          <Text size="xs" c="dimmed" ta="center" mt={8}>
+            Virtual PM can make mistakes. Review the intake draft carefully.
+          </Text>
+        </Box>
+      </Box>
+    </Stack>
+  );
+}

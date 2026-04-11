@@ -1,0 +1,35 @@
+import { workspaceResolvers } from './workspace.js';
+import { sessionResolvers } from './session.js';
+import { messageResolvers } from './message.js';
+import { draftResolvers } from './draft.js';
+import { approvalResolvers } from './approval.js';
+import { memoryResolvers } from './memory.js';
+import { visualResolvers } from './visual.js';
+
+export const resolvers = {
+  Query: {
+    ...workspaceResolvers.Query,
+    ...sessionResolvers.Query,
+    ...messageResolvers.Query,
+    ...draftResolvers.Query,
+    ...memoryResolvers.Query,
+    ...visualResolvers.Query,
+  },
+  Mutation: {
+    ...workspaceResolvers.Mutation,
+    ...sessionResolvers.Mutation,
+    ...messageResolvers.Mutation,
+    ...draftResolvers.Mutation,
+    ...approvalResolvers.Mutation,
+    ...memoryResolvers.Mutation,
+    ...visualResolvers.Mutation,
+  },
+  Subscription: {
+    ...messageResolvers.Subscription,
+    ...draftResolvers.Subscription,
+    ...memoryResolvers.Subscription,
+  },
+  // Type resolvers
+  IntakeWorkspace: workspaceResolvers.IntakeWorkspace,
+  IntakeSession: sessionResolvers.IntakeSession,
+};

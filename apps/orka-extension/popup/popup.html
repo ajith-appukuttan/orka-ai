@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        width: 280px;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #1e1e2e;
+        color: #cdd6f4;
+        padding: 16px;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .title {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: #262637;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        font-size: 12px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .dot.connected {
+        background: #a6e3a1;
+        box-shadow: 0 0 6px #a6e3a1;
+      }
+      .dot.disconnected {
+        background: #f38ba8;
+      }
+      .btn {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 150ms ease;
+      }
+      .btn-inspect {
+        background: #313244;
+        color: #cdd6f4;
+      }
+      .btn-inspect.active {
+        background: #10a37f;
+        color: white;
+      }
+      .btn-inspect:hover {
+        opacity: 0.9;
+      }
+      .hint {
+        font-size: 11px;
+        color: #6c7086;
+        text-align: center;
+        margin-top: 12px;
+      }
+      kbd {
+        background: #313244;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: monospace;
+        font-size: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="logo">V</div>
+      <div class="title">Orka Visual Intake</div>
+    </div>
+
+    <div class="status" id="status">
+      <div class="dot disconnected" id="statusDot"></div>
+      <span id="statusText">Checking connection...</span>
+    </div>
+
+    <button class="btn btn-inspect" id="inspectBtn">Enable Inspect Mode</button>
+
+    <div class="hint">Shortcut: <kbd>Cmd+Shift+I</kbd></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,5 +1,47 @@
 
-# Beads / Dolt files (added by bd init)
+# Beads / Dolt files
 .dolt/
+.beads/
 *.db
 .beads-credential-key
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Tilt
+.tilt/
+
+# Test
+coverage/
+
+# Vite
+apps/intake-ui/.vite/
+
+# Extension build output (load unpacked from source)
+apps/orka-extension/dist/
+
+# Playwright browsers
+/ms-playwright/
