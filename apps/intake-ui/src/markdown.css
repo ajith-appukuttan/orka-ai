@@ -1,0 +1,114 @@
+.orka-markdown h1,
+.orka-markdown h2,
+.orka-markdown h3,
+.orka-markdown h4 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.orka-markdown h1 {
+  font-size: 1.4em;
+}
+.orka-markdown h2 {
+  font-size: 1.2em;
+}
+.orka-markdown h3 {
+  font-size: 1.05em;
+}
+.orka-markdown h4 {
+  font-size: 1em;
+}
+
+.orka-markdown p {
+  margin: 0.5em 0;
+}
+
+.orka-markdown ul,
+.orka-markdown ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.orka-markdown li {
+  margin: 0.25em 0;
+}
+
+.orka-markdown strong {
+  font-weight: 600;
+}
+
+.orka-markdown code {
+  background: var(--mantine-color-gray-1);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: monospace;
+}
+
+[data-mantine-color-scheme='dark'] .orka-markdown code {
+  background: var(--mantine-color-dark-5);
+}
+
+.orka-markdown pre {
+  background: var(--mantine-color-gray-1);
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+[data-mantine-color-scheme='dark'] .orka-markdown pre {
+  background: var(--mantine-color-dark-6);
+}
+
+.orka-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.orka-markdown blockquote {
+  border-left: 3px solid var(--mantine-color-gray-4);
+  margin: 0.5em 0;
+  padding: 0.25em 1em;
+  color: var(--mantine-color-dimmed);
+}
+
+.orka-markdown hr {
+  border: none;
+  border-top: 1px solid var(--mantine-color-gray-3);
+  margin: 1em 0;
+}
+
+.orka-markdown table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+  font-size: 0.9em;
+}
+
+.orka-markdown th,
+.orka-markdown td {
+  border: 1px solid var(--mantine-color-gray-3);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.orka-markdown th {
+  background: var(--mantine-color-gray-1);
+  font-weight: 600;
+}
+
+[data-mantine-color-scheme='dark'] .orka-markdown th {
+  background: var(--mantine-color-dark-5);
+}
+
+.orka-markdown a {
+  color: var(--mantine-color-blue-6);
+  text-decoration: none;
+}
+
+.orka-markdown a:hover {
+  text-decoration: underline;
+}

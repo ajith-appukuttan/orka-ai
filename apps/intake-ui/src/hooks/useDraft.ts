@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useSubscription } from '@apollo/client';
 import { EDIT_DRAFT, APPROVE_DRAFT } from '../graphql/mutations';
-import { GET_DRAFT } from '../graphql/queries';
+import { GET_DRAFT, GET_LATEST_DRAFT } from '../graphql/queries';
 import { DRAFT_UPDATED, READINESS_UPDATED } from '../graphql/subscriptions';
 import type { IntakeDraft } from '@orka/draft-schema';
 
 /**
  * Normalize raw draft JSON from DB into the current IntakeDraft shape.
- * Handles old schema (flat fields) gracefully.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeDraft(raw: any): IntakeDraft {
@@ -71,32 +70,49 @@ function createEmptyDraft(): IntakeDraft {
   };
 }
 
-export function useDraft(sessionId: string | undefined) {
-  const { data, loading } = useQuery(GET_DRAFT, {
+export function useDraft(sessionId: string | undefined, workspaceId?: string | undefined) {
+  // Workspace-scoped draft query (preferred)
+  const { data: wsData } = useQuery(GET_LATEST_DRAFT, {
+    variables: { workspaceId },
+    skip: !workspaceId,
+  });
+
+  // Legacy session-scoped draft query (fallback)
+  const { data: legacyData, loading } = useQuery(GET_DRAFT, {
     variables: { sessionId },
-    skip: !sessionId,
+    skip: !sessionId || !!workspaceId,
   });
 
   const [editDraft, { loading: editing }] = useMutation(EDIT_DRAFT);
   const [approveDraft, { loading: approving }] = useMutation(APPROVE_DRAFT);
 
+  // Subscribe to workspace-scoped draft updates
   useSubscription(DRAFT_UPDATED, {
-    variables: { sessionId },
-    skip: !sessionId,
+    variables: { workspaceId: workspaceId ?? sessionId },
+    skip: !workspaceId && !sessionId,
     onData: ({ client, data: subData }) => {
       const updated = subData.data?.intakeDraftUpdated;
       if (!updated) return;
-      client.writeQuery({
-        query: GET_DRAFT,
-        variables: { sessionId },
-        data: { intakeDraft: updated },
-      });
+
+      if (workspaceId) {
+        client.writeQuery({
+          query: GET_LATEST_DRAFT,
+          variables: { workspaceId },
+          data: { intakeLatestDraft: updated },
+        });
+      } else if (sessionId) {
+        client.writeQuery({
+          query: GET_DRAFT,
+          variables: { sessionId },
+          data: { intakeDraft: updated },
+        });
+      }
     },
   });
 
   useSubscription(READINESS_UPDATED, {
-    variables: { sessionId },
-    skip: !sessionId,
+    variables: { workspaceId: workspaceId ?? sessionId },
+    skip: !workspaceId && !sessionId,
   });
 
   const edit = async (patch: Partial<IntakeDraft>) => {
@@ -110,10 +126,19 @@ export function useDraft(sessionId: string | undefined) {
     return result.data?.approveIntakeDraft;
   };
 
-  const draftData = data?.intakeDraft;
-  const rawDraft = draftData?.draft;
+  // Pick workspace-scoped data if available, else legacy
+  const rawDraft = workspaceId
+    ? wsData?.intakeLatestDraft?.draftJson
+    : legacyData?.intakeDraft?.draft;
 
-  // Normalize: handle old schema format and missing fields
+  const readinessFromServer = workspaceId
+    ? wsData?.intakeLatestDraft?.readinessScore
+    : legacyData?.intakeDraft?.readinessScore;
+
+  const version = workspaceId
+    ? wsData?.intakeLatestDraft?.version
+    : legacyData?.intakeDraft?.version;
+
   const draft = useMemo(() => {
     if (!rawDraft) return null;
     return normalizeDraft(rawDraft);
@@ -121,8 +146,8 @@ export function useDraft(sessionId: string | undefined) {
 
   return {
     draft,
-    version: draftData?.version ?? 0,
-    readinessScore: draftData?.readinessScore ?? 0,
+    version: version ?? 0,
+    readinessScore: readinessFromServer ?? 0,
     loading,
     edit,
     isEditing: editing,

@@ -9,7 +9,7 @@ export function App() {
       <AppShell>
         <Routes>
           <Route path="/" element={<IntakePage />} />
-          <Route path="/review/:sessionId" element={<ReviewPage />} />
+          <Route path="/review/:workspaceId/:sessionId" element={<ReviewPage />} />
         </Routes>
       </AppShell>
     </BrowserRouter>

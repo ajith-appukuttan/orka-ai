@@ -1,4 +1,5 @@
 import { Box, Text } from '@mantine/core';
+import Markdown from 'react-markdown';
 
 interface StreamingMessageProps {
   content: string;
@@ -10,8 +11,8 @@ export function StreamingMessage({ content }: StreamingMessageProps) {
       <Text size="xs" fw={600} mb={4}>
         Virtual PM
       </Text>
-      <Text size="sm" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-        {content}
+      <Box className="orka-markdown" style={{ fontSize: 14, lineHeight: 1.7 }}>
+        <Markdown>{content}</Markdown>
         <Box
           component="span"
           style={{
@@ -24,7 +25,7 @@ export function StreamingMessage({ content }: StreamingMessageProps) {
             animation: 'cursorBlink 1s step-end infinite',
           }}
         />
-      </Text>
+      </Box>
 
       <style>{`
         @keyframes cursorBlink {

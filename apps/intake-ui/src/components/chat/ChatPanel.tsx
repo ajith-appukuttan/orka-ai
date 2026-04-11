@@ -29,13 +29,14 @@ export function ChatPanel({
 
   return (
     <Stack h="100%" gap={0}>
-      {/* Messages */}
-      <Box flex={1} style={{ overflow: 'hidden' }}>
+      {/* Messages — minHeight:0 is required for flex child scrolling */}
+      <Box flex={1} style={{ overflow: 'hidden', minHeight: 0 }}>
         <MessageList
           messages={messages}
           isLoading={isLoading && !isStreaming}
           isStreaming={isStreaming}
           streamingContent={streamingContent}
+          onQuickReply={onSendMessage}
         />
       </Box>
 
