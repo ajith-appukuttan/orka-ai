@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "orka",
+  "project_id": "392c1fe6-616b-4f4e-8f5c-9a66f87d996d"
+}
