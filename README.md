@@ -297,4 +297,4 @@ user message → save
 
 ## License
 
-Private — internal use only.
+[MIT](LICENSE)
