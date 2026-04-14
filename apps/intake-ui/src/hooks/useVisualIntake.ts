@@ -222,12 +222,13 @@ export function useVisualIntake(workspaceId: string | undefined) {
                 textContent: sel.textContent || null,
                 boundingBox,
                 ariaRole: sel.ariaRole || null,
-                screenshotRef: data.screenshot || null,
+                screenshotRef: null, // screenshot stays client-side only, not sent via GraphQL
                 pageUrl: sel.pageUrl || '',
               },
             });
             dbId = saveData?.saveVisualSelection?.id;
-          } catch {
+          } catch (saveErr) {
+            console.warn('[VisualIntake] Failed to persist selection:', saveErr);
             // fallback to client-generated ID if save fails
           }
 
