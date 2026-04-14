@@ -527,6 +527,7 @@ export function IntakePage() {
               score={readinessScore}
               readyForReview={readinessScore >= 0.8}
               onReview={handleReview}
+              hasVisualRequirements={visual.requirements.length > 0}
             />
 
             <Group
