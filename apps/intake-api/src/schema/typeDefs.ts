@@ -179,6 +179,12 @@ export const typeDefs = `#graphql
     createdAt: DateTime
   }
 
+  type ScreenshotResult {
+    selectionId: ID!
+    objectKey: String!
+    downloadUrl: String
+  }
+
   type AggregatedPRD {
     title: String!
     summary: String!
@@ -339,6 +345,11 @@ export const typeDefs = `#graphql
       requirementId: ID!
     ): VisualRequirement!
 
+    saveVisualScreenshot(
+      selectionId: ID!
+      screenshotBase64: String!
+    ): ScreenshotResult!
+
     closeVisualSession(
       sessionId: ID!
     ): VisualPreviewSession!
@@ -371,5 +382,7 @@ export const typeDefs = `#graphql
     intakeDraftUpdated(workspaceId: ID!): IntakeDraftVersion!
     intakeReadinessUpdated(workspaceId: ID!): Float!
     intakeMemoryUpdated(workspaceId: ID!): IntakeMemoryItem!
+    visualRequirementGenerated(workspaceId: ID!): VisualRequirement!
+    visualRequirementUpdated(workspaceId: ID!): VisualRequirement!
   }
 `;

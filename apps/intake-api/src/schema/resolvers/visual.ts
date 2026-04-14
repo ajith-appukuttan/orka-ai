@@ -2,7 +2,11 @@ import crypto from 'node:crypto';
 import { query, getClient } from '../../db/pool.js';
 import { runVisualRequirementGenerator } from '../../agents/visualRequirementGenerator.js';
 import { runVisualPRDAggregator } from '../../agents/visualPRDAggregator.js';
+import { pubsub, EVENTS } from '../../pubsub/index.js';
+import { createStorageClient, getArtifactBucket } from '@orka/object-storage';
 import { config } from '../../config.js';
+
+const storageClient = createStorageClient();
 
 const PREVIEW_BROWSER_URL = process.env.PREVIEW_BROWSER_URL || 'http://localhost:4002';
 
@@ -201,6 +205,11 @@ export const visualResolvers = {
         throw new Error('Failed to generate visual requirement');
       }
 
+      // Publish event for subscriptions
+      pubsub.publish(EVENTS.VISUAL_REQUIREMENT_GENERATED(sel.intake_workspace_id), {
+        visualRequirementGenerated: requirement,
+      });
+
       return requirement;
     },
 
@@ -279,13 +288,56 @@ export const visualResolvers = {
 
         console.info(`Visual requirement "${req.title}" merged into draft v${currentVersion + 1}`);
 
-        return { ...req, status: 'ACCEPTED' };
+        const accepted = { ...req, status: 'ACCEPTED' };
+        pubsub.publish(EVENTS.VISUAL_REQUIREMENT_UPDATED(workspaceId), {
+          visualRequirementUpdated: accepted,
+        });
+        return accepted;
       } catch (err) {
         await client.query('ROLLBACK');
         throw err;
       } finally {
         client.release();
       }
+    },
+
+    // Save a screenshot to object storage and update the selection reference
+    saveVisualScreenshot: async (
+      _: unknown,
+      { selectionId, screenshotBase64 }: { selectionId: string; screenshotBase64: string },
+    ) => {
+      const bucket = getArtifactBucket();
+      const key = `visual-screenshots/${selectionId}.png`;
+
+      await storageClient.putObject({
+        bucket,
+        key,
+        body: Buffer.from(screenshotBase64, 'base64'),
+        contentType: 'image/png',
+        metadata: { selectionId },
+      });
+
+      // Update the selection record with the storage reference
+      await query(`UPDATE visual_selections SET screenshot_ref = $1 WHERE id = $2`, [
+        key,
+        selectionId,
+      ]);
+
+      // Generate a signed URL if the client supports it
+      let downloadUrl: string | null = null;
+      if (storageClient.getSignedUrl) {
+        try {
+          downloadUrl = await storageClient.getSignedUrl({
+            bucket,
+            key,
+            expiresInSeconds: 3600,
+          });
+        } catch {
+          /* non-fatal */
+        }
+      }
+
+      return { selectionId, objectKey: key, downloadUrl };
     },
 
     // Close a visual session
@@ -505,6 +557,19 @@ export const visualResolvers = {
       );
 
       return prd;
+    },
+  },
+
+  Subscription: {
+    visualRequirementGenerated: {
+      subscribe: (_: unknown, { workspaceId }: { workspaceId: string }) => {
+        return pubsub.asyncIterator(EVENTS.VISUAL_REQUIREMENT_GENERATED(workspaceId));
+      },
+    },
+    visualRequirementUpdated: {
+      subscribe: (_: unknown, { workspaceId }: { workspaceId: string }) => {
+        return pubsub.asyncIterator(EVENTS.VISUAL_REQUIREMENT_UPDATED(workspaceId));
+      },
     },
   },
 };

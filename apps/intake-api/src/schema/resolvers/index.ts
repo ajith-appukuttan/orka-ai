@@ -30,6 +30,7 @@ export const resolvers = {
     ...messageResolvers.Subscription,
     ...draftResolvers.Subscription,
     ...memoryResolvers.Subscription,
+    ...visualResolvers.Subscription,
   },
   // Type resolvers
   IntakeWorkspace: workspaceResolvers.IntakeWorkspace,
