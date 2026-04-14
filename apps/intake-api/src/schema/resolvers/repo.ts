@@ -37,7 +37,7 @@ export const repoResolvers = {
       _: unknown,
       { workspaceId, repoUrl, branch }: { workspaceId: string; repoUrl: string; branch?: string },
     ) => {
-      const analysis = await runRepoAnalyzer(workspaceId, repoUrl, branch || 'main');
+      const analysis = await runRepoAnalyzer(workspaceId, repoUrl, branch || undefined);
 
       if (!analysis) {
         throw new Error('Repository analysis failed. Check logs for details.');
