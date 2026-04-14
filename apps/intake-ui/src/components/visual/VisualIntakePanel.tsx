@@ -271,11 +271,13 @@ export function VisualIntakePanel({
                   `Hmm, I had trouble generating that requirement. Could you try describing the change differently?`,
                 );
               }
-            } catch {
+            } catch (err) {
+              console.error('[VisualIntake] Error generating requirement (inspecting):', err);
               setIsThinking(false);
               setPhase('element_captured');
+              const errMsg = err instanceof Error ? err.message : String(err);
               addBotMessage(
-                `Something went wrong generating the requirement. Let's try again — what would you like to change?`,
+                `Something went wrong: \`${errMsg}\`\n\nLet's try again — what would you like to change?`,
               );
             }
           } else {
@@ -306,16 +308,19 @@ export function VisualIntakePanel({
                 ],
               });
             } else {
+              console.warn('[VisualIntake] submitChange returned null');
               setPhase('element_captured');
               addBotMessage(
                 `Hmm, I had trouble generating that requirement. Could you try describing the change differently?`,
               );
             }
-          } catch {
+          } catch (err) {
+            console.error('[VisualIntake] Error generating requirement (element_captured):', err);
             setIsThinking(false);
             setPhase('element_captured');
+            const errMsg = err instanceof Error ? err.message : String(err);
             addBotMessage(
-              `Something went wrong generating the requirement. Let's try again — what would you like to change?`,
+              `Something went wrong: \`${errMsg}\`\n\nLet's try again — what would you like to change?`,
             );
           }
           break;
