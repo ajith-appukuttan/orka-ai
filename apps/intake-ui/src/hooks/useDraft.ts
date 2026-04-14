@@ -72,16 +72,18 @@ function createEmptyDraft(): IntakeDraft {
 
 export function useDraft(sessionId: string | undefined, workspaceId?: string | undefined) {
   // Workspace-scoped draft query (preferred)
-  const { data: wsData } = useQuery(GET_LATEST_DRAFT, {
+  const { data: wsData, loading: wsLoading } = useQuery(GET_LATEST_DRAFT, {
     variables: { workspaceId },
     skip: !workspaceId,
   });
 
   // Legacy session-scoped draft query (fallback)
-  const { data: legacyData, loading } = useQuery(GET_DRAFT, {
+  const { data: legacyData, loading: legacyLoading } = useQuery(GET_DRAFT, {
     variables: { sessionId },
     skip: !sessionId || !!workspaceId,
   });
+
+  const loading = workspaceId ? wsLoading : legacyLoading;
 
   const [editDraft, { loading: editing }] = useMutation(EDIT_DRAFT);
   const [approveDraft, { loading: approving }] = useMutation(APPROVE_DRAFT);
