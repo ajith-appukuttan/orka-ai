@@ -13,7 +13,6 @@ dc_resource('minio-init', labels=['infra'])
 dc_resource('intake-api', labels=['services'])
 dc_resource('intake-ui', labels=['services'])
 dc_resource('mcp-gateway', labels=['services'])
-dc_resource('preview-browser', labels=['services'])
 dc_resource('mock-app', labels=['services'])
 
 # ─── Live Updates (sync source into running containers) ────────
@@ -35,9 +34,16 @@ dc_resource('mcp-gateway',
   trigger_mode=TRIGGER_MODE_AUTO,
 )
 
-# Preview Browser
-dc_resource('preview-browser',
-  trigger_mode=TRIGGER_MODE_AUTO,
+# Preview Browser — runs locally so Chrome opens visibly on the host
+local_resource(
+    'preview-browser',
+    serve_cmd='pnpm --filter @orka/preview-browser dev',
+    deps=['apps/preview-browser/src'],
+    labels=['services'],
+    env={
+        'PORT': '4002',
+        'ALLOWED_PREVIEW_HOSTS': 'localhost,127.0.0.1,*.asurion.net,*.aws.asurion.net',
+    },
 )
 
 # ─── DB Migrations ─────────────────────────────────────────────
