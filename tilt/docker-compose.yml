@@ -1,4 +1,5 @@
 services:
+  # ─── Infrastructure ──────────────────────────────────
   postgres:
     image: postgres:16-alpine
     environment:
@@ -26,5 +27,110 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - '9002:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Auto-create the approved-artifacts bucket
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minio minio123 &&
+      mc mb --ignore-existing local/approved-artifacts &&
+      echo 'Bucket created'
+      "
+    restart: 'no'
+
+  # ─── Application Services ───────────────────────────
+  intake-api:
+    build:
+      context: ..
+      dockerfile: apps/intake-api/Dockerfile.dev
+    ports:
+      - '4000:4000'
+    environment:
+      PORT: '4000'
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_NAME: orka
+      DB_USER: orka
+      DB_PASSWORD: orka
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGIN: http://localhost:5173
+      MCP_GATEWAY_URL: http://mcp-gateway:4001
+      PREVIEW_BROWSER_URL: http://host.docker.internal:4002
+      ANTHROPIC_VERTEX_PROJECT_ID: ${ANTHROPIC_VERTEX_PROJECT_ID:-}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-east5}
+      CLOUD_ML_REGION: ${CLOUD_ML_REGION:-us-east5}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-}
+      # Object storage (MinIO for local dev)
+      OBJECT_STORAGE_PROVIDER: minio
+      OBJECT_STORAGE_BUCKET: approved-artifacts
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  intake-ui:
+    build:
+      context: ..
+      dockerfile: apps/intake-ui/Dockerfile.dev
+    ports:
+      - '5173:5173'
+    depends_on:
+      - intake-api
+
+  mcp-gateway:
+    build:
+      context: ..
+      dockerfile: apps/mcp-gateway/Dockerfile.dev
+    ports:
+      - '4001:4001'
+    environment:
+      PORT: '4001'
+
+  preview-browser:
+    build:
+      context: ..
+      dockerfile: apps/preview-browser/Dockerfile.dev
+    ports:
+      - '4002:4002'
+    environment:
+      PORT: '4002'
+      ALLOWED_PREVIEW_HOSTS: 'localhost,127.0.0.1,*.asurion.net,*.aws.asurion.net'
+
+  mock-app:
+    image: nginx:alpine
+    ports:
+      - '3001:80'
+    volumes:
+      - ../apps/mock-app/index.html:/usr/share/nginx/html/index.html:ro
+
 volumes:
   pgdata:
+  miniodata:

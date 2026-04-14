@@ -1,0 +1,26 @@
+{
+  "name": "@orka/object-storage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .tsbuildinfo"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.14.0",
+    "minio": "^8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

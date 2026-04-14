@@ -111,11 +111,19 @@ export const typeDefs = `#graphql
   # ─── Approved Artifact ────────────────────────────────
   type ApprovedArtifact {
     id: ID!
-    sessionId: ID!
+    tenantId: String
+    workspaceId: ID
+    runId: String!
+    stage: String!
+    artifactType: String!
     version: Int!
-    artifact: JSON!
+    bucketName: String!
+    objectKey: String!
+    checksum: String!
     approvedBy: String!
     approvedAt: DateTime!
+    status: String!
+    downloadUrl: String
   }
 
   # ─── Search Result ────────────────────────────────────
@@ -201,6 +209,11 @@ export const typeDefs = `#graphql
 
     # Search
     searchIntake(query: String!, tenantId: String!): [SearchResult!]!
+
+    # Approved artifact queries
+    approvedArtifacts(workspaceId: ID!): [ApprovedArtifact!]!
+    approvedArtifact(id: ID!): ApprovedArtifact
+    approvedArtifactsByRun(runId: String!): [ApprovedArtifact!]!
 
     # Visual Intake queries
     visualPreviewSession(id: ID!): VisualPreviewSession

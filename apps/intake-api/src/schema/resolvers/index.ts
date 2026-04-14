@@ -3,6 +3,7 @@ import { sessionResolvers } from './session.js';
 import { messageResolvers } from './message.js';
 import { draftResolvers } from './draft.js';
 import { approvalResolvers } from './approval.js';
+import { artifactResolvers } from './artifacts.js';
 import { memoryResolvers } from './memory.js';
 import { visualResolvers } from './visual.js';
 
@@ -14,6 +15,7 @@ export const resolvers = {
     ...draftResolvers.Query,
     ...memoryResolvers.Query,
     ...visualResolvers.Query,
+    ...artifactResolvers.Query,
   },
   Mutation: {
     ...workspaceResolvers.Mutation,
