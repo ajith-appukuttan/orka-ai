@@ -427,23 +427,41 @@ export function VisualIntakePanel({
               </Badge>
             )}
           </Group>
-          <Tooltip label="Close browser">
-            <ActionIcon size="sm" variant="subtle" color="gray" onClick={onClose}>
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </ActionIcon>
-          </Tooltip>
+          <Group gap="xs">
+            <Button
+              size="xs"
+              radius="xl"
+              variant={inspectMode ? 'filled' : 'outline'}
+              color={inspectMode ? 'teal' : 'gray'}
+              onClick={() => {
+                const enabling = !inspectMode;
+                onToggleInspect(enabling);
+                if (enabling && phase !== 'inspecting') {
+                  setPhase('inspecting');
+                  addBotMessage(INSPECT_ACTIVE_MSG);
+                }
+              }}
+            >
+              {inspectMode ? 'Stop Inspect' : 'Inspect'}
+            </Button>
+            <Tooltip label="Close browser">
+              <ActionIcon size="sm" variant="subtle" color="gray" onClick={onClose}>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Group>
       )}
 
