@@ -61,7 +61,9 @@ export async function launchChrome(url?: string): Promise<{
     // Open URL in existing Chrome if provided
     if (url) {
       try {
-        await fetch(`http://127.0.0.1:${CDP_PORT}/json/new?${encodeURIComponent(url)}`);
+        await fetch(`http://127.0.0.1:${CDP_PORT}/json/new?${encodeURIComponent(url)}`, {
+          method: 'PUT',
+        });
       } catch {
         /* tab may already have the URL */
       }

@@ -16,6 +16,7 @@
     "@apollo/server": "^4.11.0",
     "@graphql-tools/schema": "^10.0.0",
     "@orka/draft-schema": "workspace:*",
+    "@orka/object-storage": "workspace:*",
     "@orka/shared-types": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.21.0",

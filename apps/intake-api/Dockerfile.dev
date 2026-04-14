@@ -1,0 +1,29 @@
+FROM node:22-slim
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+WORKDIR /app
+
+# Copy workspace config
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY tsconfig.base.json ./
+
+# Copy package.json files for dependency install
+COPY packages/draft-schema/package.json ./packages/draft-schema/
+COPY packages/object-storage/package.json ./packages/object-storage/
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY apps/intake-api/package.json ./apps/intake-api/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+
+# Copy source (will be overridden by live_update)
+COPY packages/ ./packages/
+COPY apps/intake-api/ ./apps/intake-api/
+COPY prompts/ ./prompts/
+
+# Build shared packages
+RUN pnpm --filter @orka/shared-types build && \
+    pnpm --filter @orka/draft-schema build && \
+    pnpm --filter @orka/object-storage build
+
+EXPOSE 4000
+CMD ["pnpm", "--filter", "@orka/intake-api", "dev"]

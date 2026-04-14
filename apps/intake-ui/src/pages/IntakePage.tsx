@@ -432,6 +432,21 @@ export function IntakePage() {
                   <Text size="xs" fw={600} truncate style={{ maxWidth: 200 }}>
                     {workspaces.find((w) => w.id === activeWorkspaceId)?.title ?? 'Session'}
                   </Text>
+                  <Tooltip label={`Session ID: ${activeSessionId}\nClick to copy`} multiline>
+                    <Text
+                      size="xs"
+                      ff="monospace"
+                      c="dimmed"
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => {
+                        if (activeSessionId) {
+                          navigator.clipboard.writeText(activeSessionId);
+                        }
+                      }}
+                    >
+                      #{activeSessionId?.substring(0, 8)}
+                    </Text>
+                  </Tooltip>
                 </Group>
                 <SegmentedControl
                   size="xs"
