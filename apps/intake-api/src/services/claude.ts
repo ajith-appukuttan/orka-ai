@@ -22,6 +22,7 @@ const toolPlannerPrompt = loadPrompt('tool-planner.md');
 const summaryGeneratorPrompt = loadPrompt('summary-generator.md');
 const memoryCuratorPrompt = loadPrompt('memory-curator.md');
 const visualIntakePrompt = loadPrompt('visual-intake.md');
+const repoAnalyzerPrompt = loadPrompt('repo-analyzer.md');
 
 export interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -232,11 +233,32 @@ export interface VisualChangeIntent {
   userInstruction: string;
 }
 
+export interface VisualRequirementContext {
+  title: string;
+  targetArea: string;
+  requestedChange: string;
+}
+
 /**
  * Convert a visual change intent into a structured requirement.
+ * Optionally enriched with existing draft and prior requirements for consistency.
  */
-export async function generateVisualRequirement(intent: VisualChangeIntent): Promise<string> {
+export async function generateVisualRequirement(
+  intent: VisualChangeIntent,
+  existingContext?: {
+    currentDraft?: Record<string, unknown>;
+    priorRequirements?: VisualRequirementContext[];
+  },
+): Promise<string> {
   const el = intent.selectedElement;
+
+  let contextSection = '';
+  if (existingContext?.currentDraft && Object.keys(existingContext.currentDraft).length > 0) {
+    contextSection += `\n## Current Draft PRD State\n\`\`\`json\n${JSON.stringify(existingContext.currentDraft, null, 2)}\n\`\`\`\n`;
+  }
+  if (existingContext?.priorRequirements && existingContext.priorRequirements.length > 0) {
+    contextSection += `\n## Previously Generated Requirements\n${existingContext.priorRequirements.map((r) => `- **${r.title}**: ${r.targetArea} — ${r.requestedChange}`).join('\n')}\n`;
+  }
 
   const userContent = `## Page URL
 ${intent.pageUrl}
@@ -248,16 +270,99 @@ ${intent.pageUrl}
 - **Text Content**: "${(el.textContent || '').substring(0, 300)}"
 - **ARIA Role**: ${el.ariaRole || 'none'}
 - **Position**: x=${el.boundingBox.x}, y=${el.boundingBox.y}, ${el.boundingBox.width}x${el.boundingBox.height}
-
+${contextSection}
 ## User Instruction
 ${intent.userInstruction}
 
-Convert this into a structured visual requirement. Return JSON only.`;
+Convert this into a structured visual requirement. Include a "changeCategory" field with one of: STYLE, LAYOUT, CONTENT, INTERACTION, VALIDATION, ACCESSIBILITY, DATA_DISPLAY. Return JSON only.`;
 
   const response = await client.messages.create({
     model: config.vertex.model,
     max_tokens: 2048,
     system: visualIntakePrompt,
+    messages: [{ role: 'user', content: userContent }],
+  });
+
+  const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
+  return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '{}';
+}
+
+/**
+ * Aggregate multiple visual requirements into a coherent PRD.
+ */
+export async function aggregateVisualPRD(
+  requirements: Array<Record<string, unknown>>,
+  existingDraft: Record<string, unknown>,
+): Promise<string> {
+  const prdAggregatorPrompt = loadPrompt('visual-prd-aggregator.md');
+
+  const userContent = `## Visual Requirements (${requirements.length} total)
+
+\`\`\`json
+${JSON.stringify(requirements, null, 2)}
+\`\`\`
+
+## Existing Draft Context
+
+\`\`\`json
+${JSON.stringify(existingDraft, null, 2)}
+\`\`\`
+
+Aggregate these visual requirements into a single coherent PRD. Deduplicate overlapping requirements, group by target area, identify cross-cutting concerns, and produce the complete PRD JSON structure. Return JSON only.`;
+
+  const response = await client.messages.create({
+    model: config.vertex.model,
+    max_tokens: 4096,
+    system: prdAggregatorPrompt,
+    messages: [{ role: 'user', content: userContent }],
+  });
+
+  const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
+  return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '{}';
+}
+
+export interface RepoAnalysisInput {
+  readme: string | null;
+  fileTree: string[];
+  manifests: Array<Record<string, unknown>>;
+  entryPoints: string[];
+  entryPointContents: Record<string, string>;
+}
+
+/**
+ * Analyze a repository's structure and extract key metadata.
+ */
+export async function analyzeRepository(input: RepoAnalysisInput): Promise<string> {
+  const manifestSection = input.manifests
+    .map((m) => `### ${m.file}\n\`\`\`\n${m.content}\n\`\`\``)
+    .join('\n\n');
+
+  const entryPointSection = Object.entries(input.entryPointContents)
+    .map(([file, content]) => `### ${file}\n\`\`\`\n${content}\n\`\`\``)
+    .join('\n\n');
+
+  const userContent = `## README
+${input.readme || 'No README found.'}
+
+## File Tree (${input.fileTree.length} entries)
+\`\`\`
+${input.fileTree.slice(0, 300).join('\n')}
+\`\`\`
+
+## Package Manifests
+${manifestSection || 'None found.'}
+
+## Entry Points
+${input.entryPoints.join(', ') || 'None detected.'}
+
+${entryPointSection ? `## Entry Point Contents\n${entryPointSection}` : ''}
+
+Analyze this repository and return the structured JSON. Focus on identifying UI components, pages, and services that would be relevant for mapping visual UI requirements to code.`;
+
+  const response = await client.messages.create({
+    model: config.vertex.model,
+    max_tokens: 4096,
+    system: repoAnalyzerPrompt,
     messages: [{ role: 'user', content: userContent }],
   });
 

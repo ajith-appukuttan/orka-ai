@@ -11,4 +11,8 @@ export const EVENTS = {
   DRAFT_UPDATED: (id: string) => `DRAFT_UPDATED_${id}`,
   READINESS_UPDATED: (id: string) => `READINESS_UPDATED_${id}`,
   MEMORY_UPDATED: (workspaceId: string) => `MEMORY_UPDATED_${workspaceId}`,
+  // Visual intake events
+  VISUAL_REQUIREMENT_GENERATED: (workspaceId: string) =>
+    `VISUAL_REQUIREMENT_GENERATED_${workspaceId}`,
+  VISUAL_REQUIREMENT_UPDATED: (workspaceId: string) => `VISUAL_REQUIREMENT_UPDATED_${workspaceId}`,
 };

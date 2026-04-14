@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Stack,
   Box,
@@ -7,14 +7,45 @@ import {
   Button,
   Text,
   Paper,
-  Textarea,
+  ScrollArea,
+  Badge,
   ActionIcon,
   Tooltip,
-  Badge,
-  Loader,
   Image,
 } from '@mantine/core';
-import type { SelectedElement, VisualSession } from '../../hooks/useVisualIntake';
+import Markdown from 'react-markdown';
+import { MessageInput } from '../chat/MessageInput';
+import { useTheme } from '../../hooks/useTheme';
+import type {
+  SelectedElement,
+  VisualSession,
+  VisualRequirementItem,
+} from '../../hooks/useVisualIntake';
+
+// ─── Types ─────────────────────────────────────────────
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  screenshot?: string | null;
+  element?: SelectedElement | null;
+  requirement?: VisualRequirementItem | null;
+  actions?: Array<{ label: string; action: string }>;
+}
+
+type ConversationPhase =
+  | 'idle'
+  | 'launching'
+  | 'browsing'
+  | 'inspecting'
+  | 'element_captured'
+  | 'discussing_change'
+  | 'generating'
+  | 'requirement_generated'
+  | 'ask_more_changes'
+  | 'ask_repo'
+  | 'repo_submitted'
+  | 'done';
 
 interface VisualIntakePanelProps {
   session: VisualSession | null;
@@ -25,10 +56,165 @@ interface VisualIntakePanelProps {
   isSubmitting: boolean;
   onStartPreview: (url: string) => void;
   onToggleInspect: (enabled: boolean) => void;
-  onSubmitChange: (instruction: string) => void;
+  onSubmitChange: (instruction: string) => Promise<VisualRequirementItem | null>;
   onClose: () => void;
+  onAnalyzeRepo?: (repoUrl: string) => void;
+  onDoneVisual?: () => void;
+  requirements?: VisualRequirementItem[];
 }
 
+// ─── Copilot messages ──────────────────────────────────
+const WELCOME_MSG = `Hey! I'm your Virtual PM. I'll help you capture UI changes visually.
+
+Paste the URL of the app you want to modify, and I'll open it in a real Chrome window. You can browse around, log in, navigate — and when you're ready, we'll start selecting elements to change.`;
+
+const BROWSER_LAUNCHED_MSG = `Chrome is up and running with your app. Take your time to navigate to the page you want to change.
+
+When you're ready, I'll turn on **Inspect Mode** so you can click on any element. Just say **"ready"** or click the button below.`;
+
+const INSPECT_ACTIVE_MSG = `Inspect mode is active! Go to the Chrome window and **click on any element** you'd like to change. I'll capture it here so we can discuss what to do with it.`;
+
+const ASK_CHANGE_MSG = (el: SelectedElement) => {
+  const tag = el.selector.split(' > ').pop() || 'element';
+  const text = el.textContent ? `\n> "${el.textContent.substring(0, 150)}"` : '';
+  return `I captured this element: \`${tag}\`${text}
+
+What would you like to change about it? Be as specific as you can — styling, text, layout, behavior, anything.`;
+};
+
+const GENERATING_MSG = `Let me think about that and turn it into a structured requirement...`;
+
+const REQUIREMENT_DONE_MSG = (req: VisualRequirementItem) =>
+  `Here's what I captured:
+
+**${req.title}**
+
+${req.summary}
+
+**Change:** ${req.requestedChange}
+**Target:** ${req.targetArea}
+**Confidence:** ${Math.round(req.confidence * 100)}%
+
+${(req.acceptanceCriteria || []).length > 0 ? `**Acceptance Criteria:**\n${req.acceptanceCriteria.map((c: string) => `- ${c}`).join('\n')}` : ''}
+
+Would you like to **select another element** to change, or are you done with visual changes?`;
+
+const ASK_REPO_MSG = `Great work! We've captured your UI changes.
+
+One more thing — do you have a **GitHub repository** for this project? If you share the URL, I can analyze the codebase and map your visual requirements to actual source files.
+
+Just paste the repo URL, or say **"skip"** if you'd rather do that later.`;
+
+const REPO_SUBMITTED_MSG = `I've kicked off the repository analysis. This will map your UI requirements to source code files so the engineering team knows exactly where to make changes.
+
+Your visual intake session is looking solid! You can switch to the **Chat** tab to continue refining the PRD, or review the generated requirements in the draft panel.`;
+
+const SKIP_REPO_MSG = `No problem! You can always connect a repository later from the workspace settings.
+
+Your visual requirements are captured and ready. Switch to the **Chat** tab to continue refining the PRD, or review the generated requirements in the draft panel.`;
+
+// ─── Animated Thinking ─────────────────────────────────
+const THINKING_STEPS: Record<string, string[]> = {
+  generating: [
+    'Analyzing the selected element...',
+    'Understanding your change request...',
+    'Crafting acceptance criteria...',
+    'Generating structured requirement...',
+  ],
+  repo_analyzing: [
+    'Connecting to GitHub...',
+    'Detecting default branch...',
+    'Cloning repository (shallow)...',
+    'Scanning file tree and manifests...',
+    'Analyzing architecture with Claude...',
+    'Extracting key components...',
+    'Mapping requirements to source files...',
+  ],
+  launching: ['Starting Chrome...', 'Loading your application...'],
+};
+
+function ThinkingAnimation({ operation }: { operation: string }) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const steps = THINKING_STEPS[operation] || ['Working on it...'];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStepIndex((prev) => (prev + 1) % steps.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [steps.length]);
+
+  return (
+    <Box>
+      <Group gap="xs" align="center">
+        <Box
+          style={{
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            border: '2px solid transparent',
+            borderTopColor: '#10a37f',
+            animation: 'orka-spin 0.8s linear infinite',
+          }}
+        />
+        <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
+          {steps[stepIndex]}
+        </Text>
+      </Group>
+
+      {/* Progress dots */}
+      <Group gap={4} mt={6} ml={26}>
+        {steps.map((_, i) => (
+          <Box
+            key={i}
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: i <= stepIndex ? '#10a37f' : 'var(--mantine-color-gray-4)',
+              transition: 'background 300ms ease',
+            }}
+          />
+        ))}
+      </Group>
+
+      {/* Inject keyframes */}
+      <style>{`
+        @keyframes orka-spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </Box>
+  );
+}
+
+// ─── Avatar ────────────────────────────────────────────
+function Avatar({ role }: { role: string }) {
+  const bg = role === 'user' ? '#5436DA' : 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)';
+  const letter = role === 'user' ? 'U' : 'V';
+
+  return (
+    <Box
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: '50%',
+        background: bg,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        fontSize: 12,
+        fontWeight: role === 'user' ? 600 : 700,
+        flexShrink: 0,
+      }}
+    >
+      {letter}
+    </Box>
+  );
+}
+
+// ─── Component ─────────────────────────────────────────
 export function VisualIntakePanel({
   session,
   selectedElement,
@@ -40,235 +226,513 @@ export function VisualIntakePanel({
   onToggleInspect,
   onSubmitChange,
   onClose,
+  onAnalyzeRepo,
+  onDoneVisual,
+  requirements = [],
 }: VisualIntakePanelProps) {
   const [url, setUrl] = useState('http://localhost:3001');
-  const [instruction, setInstruction] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { id: 'welcome', role: 'assistant', content: WELCOME_MSG },
+  ]);
+  const [phase, setPhase] = useState<ConversationPhase>('idle');
+  const [isThinking, setIsThinking] = useState(false);
+  const [thinkingOp, setThinkingOp] = useState<string>('generating');
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const prevElementRef = useRef<string | null>(null);
+  const { themedColor, contentMaxWidth } = useTheme();
 
-  const handleSubmit = () => {
-    if (!instruction.trim()) return;
-    onSubmitChange(instruction.trim());
-    setInstruction('');
-  };
+  // Auto-scroll on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length, isThinking]);
 
-  // No session — URL input to launch browser
-  if (!session) {
-    return (
-      <Stack h="100%" align="center" justify="center" gap="lg" p="xl">
-        <Box
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <svg
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-          </svg>
-        </Box>
-        <Text size="lg" fw={600}>
-          Visual Intake
-        </Text>
-        <Text size="sm" c="dimmed" ta="center" maw={450}>
-          A real Chrome window will open with your URL. Browse naturally, log in via SSO, navigate
-          to any page. When ready, click <strong>Inspect</strong> to start selecting elements.
-        </Text>
-        <Group w="100%" maw={500}>
-          <TextInput
-            flex={1}
-            placeholder="https://your-app.example.com"
-            value={url}
-            onChange={(e) => setUrl(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onStartPreview(url);
-            }}
-          />
-          <Button onClick={() => onStartPreview(url)} loading={isStarting} color="teal">
-            Open Browser
-          </Button>
-        </Group>
-      </Stack>
-    );
-  }
+  // Add a bot message helper
+  const addBotMessage = useCallback((content: string, extras?: Partial<ChatMessage>) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content,
+        ...extras,
+      },
+    ]);
+  }, []);
 
-  // Browser launched — show status and controls
+  const addUserMessage = useCallback((content: string) => {
+    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', content }]);
+  }, []);
+
+  // Phase: browser launched
+  useEffect(() => {
+    if (session && phase === 'launching') {
+      setIsThinking(false);
+      setPhase('browsing');
+      addBotMessage(BROWSER_LAUNCHED_MSG, {
+        actions: [{ label: 'Ready to inspect', action: 'start_inspect' }],
+      });
+    }
+  }, [session, phase, addBotMessage]);
+
+  // Phase: element captured
+  useEffect(() => {
+    if (selectedElement && selectedElement.id !== prevElementRef.current) {
+      prevElementRef.current = selectedElement.id;
+      setPhase('element_captured');
+
+      // Disable inspect mode after capture
+      onToggleInspect(false);
+
+      addBotMessage(ASK_CHANGE_MSG(selectedElement), {
+        screenshot: selectedElement.elementScreenshot,
+        element: selectedElement,
+      });
+    }
+  }, [selectedElement, addBotMessage, onToggleInspect]);
+
+  // Handle user input based on current phase
+  const handleSend = useCallback(
+    async (text: string) => {
+      addUserMessage(text);
+      const lower = text.toLowerCase().trim();
+
+      switch (phase) {
+        case 'idle': {
+          // User provided a URL
+          const urlInput = text.startsWith('http') ? text : url;
+          setPhase('launching');
+          setThinkingOp('launching');
+          setIsThinking(true);
+          onStartPreview(urlInput);
+          break;
+        }
+
+        case 'browsing': {
+          // User says "ready" or similar
+          if (
+            lower.includes('ready') ||
+            lower.includes('inspect') ||
+            lower.includes('start') ||
+            lower.includes('go') ||
+            lower.includes('yes')
+          ) {
+            setPhase('inspecting');
+            onToggleInspect(true);
+            addBotMessage(INSPECT_ACTIVE_MSG);
+          } else {
+            addBotMessage(
+              `Take your time browsing. When you're ready to start selecting elements, just say **"ready"**.`,
+            );
+          }
+          break;
+        }
+
+        case 'inspecting': {
+          // If an element was already captured, treat this as a change description
+          if (selectedElement) {
+            setPhase('generating');
+            setThinkingOp('generating');
+            setIsThinking(true);
+            addBotMessage(GENERATING_MSG);
+            try {
+              const req = await onSubmitChange(text);
+              setIsThinking(false);
+              if (req) {
+                setPhase('requirement_generated');
+                addBotMessage(REQUIREMENT_DONE_MSG(req), {
+                  requirement: req,
+                  actions: [
+                    { label: 'Select another element', action: 'more_changes' },
+                    { label: 'Done with visual changes', action: 'done_visual' },
+                  ],
+                });
+              } else {
+                setPhase('element_captured');
+                addBotMessage(
+                  `Hmm, I had trouble generating that requirement. Could you try describing the change differently?`,
+                );
+              }
+            } catch (err) {
+              console.error('[VisualIntake] Error generating requirement (inspecting):', err);
+              setIsThinking(false);
+              setPhase('element_captured');
+              const errMsg = err instanceof Error ? err.message : String(err);
+              addBotMessage(
+                `Something went wrong: \`${errMsg}\`\n\nLet's try again — what would you like to change?`,
+              );
+            }
+          } else {
+            addBotMessage(
+              `I'm waiting for you to click an element in the Chrome window. Go ahead and click on what you'd like to change!`,
+            );
+          }
+          break;
+        }
+
+        case 'element_captured':
+        case 'discussing_change': {
+          // User describes the change they want
+          setPhase('generating');
+          setThinkingOp('generating');
+          setIsThinking(true);
+          addBotMessage(GENERATING_MSG);
+
+          try {
+            const req = await onSubmitChange(text);
+            setIsThinking(false);
+            if (req) {
+              setPhase('requirement_generated');
+              addBotMessage(REQUIREMENT_DONE_MSG(req), {
+                requirement: req,
+                actions: [
+                  { label: 'Select another element', action: 'more_changes' },
+                  { label: 'Done with visual changes', action: 'done_visual' },
+                ],
+              });
+            } else {
+              console.warn('[VisualIntake] submitChange returned null');
+              setPhase('element_captured');
+              addBotMessage(
+                `Hmm, I had trouble generating that requirement. Could you try describing the change differently?`,
+              );
+            }
+          } catch (err) {
+            console.error('[VisualIntake] Error generating requirement (element_captured):', err);
+            setIsThinking(false);
+            setPhase('element_captured');
+            const errMsg = err instanceof Error ? err.message : String(err);
+            addBotMessage(
+              `Something went wrong: \`${errMsg}\`\n\nLet's try again — what would you like to change?`,
+            );
+          }
+          break;
+        }
+
+        case 'requirement_generated':
+        case 'ask_more_changes': {
+          if (
+            lower.includes('another') ||
+            lower.includes('more') ||
+            lower.includes('select') ||
+            lower.includes('yes') ||
+            lower.includes('next')
+          ) {
+            setPhase('inspecting');
+            onToggleInspect(true);
+            addBotMessage(INSPECT_ACTIVE_MSG);
+          } else if (
+            lower.includes('done') ||
+            lower.includes('no') ||
+            lower.includes('finish') ||
+            lower.includes('stop')
+          ) {
+            setPhase('done');
+            addBotMessage(
+              `Great work! Your visual requirements are captured. Switching you to the **Chat** tab to continue refining the PRD and connect your repository.`,
+            );
+            // Auto-switch to chat mode after a brief delay
+            setTimeout(() => {
+              onDoneVisual?.();
+            }, 1500);
+          } else {
+            addBotMessage(
+              `Would you like to **select another element** to change, or are you **done** with visual changes?`,
+              {
+                actions: [
+                  { label: 'Select another element', action: 'more_changes' },
+                  { label: 'Done with visual changes', action: 'done_visual' },
+                ],
+              },
+            );
+          }
+          break;
+        }
+
+        case 'done': {
+          addBotMessage(
+            `Your visual intake is complete! You can switch to the **Chat** tab to continue refining the PRD.`,
+          );
+          break;
+        }
+
+        default:
+          break;
+      }
+    },
+    [
+      phase,
+      url,
+      addUserMessage,
+      addBotMessage,
+      onStartPreview,
+      onToggleInspect,
+      onSubmitChange,
+      onAnalyzeRepo,
+      onDoneVisual,
+    ],
+  );
+
+  // Handle action button clicks
+  const handleAction = useCallback(
+    (action: string) => {
+      switch (action) {
+        case 'start_inspect':
+          handleSend('Ready to inspect');
+          break;
+        case 'more_changes':
+          handleSend('Select another element');
+          break;
+        case 'done_visual':
+          handleSend('Done with visual changes');
+          break;
+        default:
+          break;
+      }
+    },
+    [handleSend],
+  );
+
+  // ─── Render ────────────────────────────────────────────
   return (
     <Stack h="100%" gap={0}>
-      {/* Status bar */}
-      <Group
-        px="md"
-        py="sm"
-        justify="space-between"
-        style={{ borderBottom: '1px solid var(--mantine-color-gray-3)', flexShrink: 0 }}
-      >
-        <Group gap="sm">
-          <Badge
-            size="sm"
-            variant="dot"
-            color={
-              browserStatus === 'inspecting'
-                ? 'teal'
-                : browserStatus === 'running'
-                  ? 'blue'
-                  : 'gray'
-            }
-          >
-            {browserStatus === 'launching'
-              ? 'Launching...'
-              : browserStatus === 'inspecting'
+      {/* Minimal status bar */}
+      {session && (
+        <Group
+          px="md"
+          py={6}
+          justify="space-between"
+          style={{ borderBottom: `1px solid ${themedColor('borderColor')}`, flexShrink: 0 }}
+        >
+          <Group gap="sm">
+            <Badge
+              size="sm"
+              variant="dot"
+              color={
+                browserStatus === 'inspecting'
+                  ? 'teal'
+                  : browserStatus === 'running'
+                    ? 'blue'
+                    : 'gray'
+              }
+            >
+              {browserStatus === 'inspecting'
                 ? 'Inspecting'
                 : browserStatus === 'running'
-                  ? 'Browser Open'
-                  : 'Idle'}
-          </Badge>
-          <Text size="xs" c="dimmed" truncate style={{ maxWidth: 300 }}>
-            {session.url}
-          </Text>
-        </Group>
-        <Group gap="xs">
-          <Button
-            size="xs"
-            radius="xl"
-            variant={inspectMode ? 'filled' : 'outline'}
-            color={inspectMode ? 'teal' : 'gray'}
-            onClick={() => onToggleInspect(!inspectMode)}
-          >
-            {inspectMode ? 'Stop Inspect' : 'Inspect'}
-          </Button>
-          <Tooltip label="Close browser">
-            <ActionIcon size="sm" variant="subtle" color="gray" onClick={onClose}>
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-      </Group>
-
-      {/* Instructions / waiting state */}
-      <Box flex={1} style={{ overflow: 'auto' }}>
-        {!selectedElement && !inspectMode && (
-          <Stack align="center" justify="center" h="100%" gap="md" p="xl">
-            <Text size="md" fw={500} ta="center">
-              Chrome is open with your application
+                  ? 'Chrome Open'
+                  : browserStatus === 'launching'
+                    ? 'Launching...'
+                    : 'Idle'}
+            </Badge>
+            <Text size="xs" c="dimmed" truncate style={{ maxWidth: 300 }}>
+              {session.url}
             </Text>
-            <Text size="sm" c="dimmed" ta="center" maw={400}>
-              Navigate to the page you want to change, then click <strong>Inspect</strong> above.
-              You'll be able to click any element to capture it.
-            </Text>
-          </Stack>
-        )}
-
-        {!selectedElement && inspectMode && (
-          <Stack align="center" justify="center" h="100%" gap="md" p="xl">
-            <Loader type="dots" size="sm" />
-            <Text size="sm" c="dimmed" ta="center" maw={400}>
-              Inspect mode is active in Chrome. Click any element in the browser window to select
-              it.
-            </Text>
-            <Text size="xs" c="dimmed">
-              Waiting for selection...
-            </Text>
-          </Stack>
-        )}
-
-        {/* Selected element detail */}
-        {selectedElement && (
-          <Stack p="md" gap="md">
-            <Paper p="md" radius="md" withBorder>
-              <Group gap="xs" mb="sm">
-                <Badge size="sm" variant="outline" color="teal">
-                  {selectedElement.selector.split(' > ').pop()}
-                </Badge>
-                {selectedElement.ariaRole && (
-                  <Badge size="sm" variant="light" color="gray">
-                    role={selectedElement.ariaRole}
-                  </Badge>
-                )}
-              </Group>
-
-              {selectedElement.textContent && (
-                <Text size="sm" c="dimmed" mb="sm" lineClamp={3}>
-                  "{selectedElement.textContent}"
-                </Text>
-              )}
-
-              <Text size="xs" c="dimmed" ff="monospace">
-                {selectedElement.selector}
-              </Text>
-
-              {/* Element screenshot */}
-              {selectedElement.elementScreenshot && (
-                <Box mt="sm">
-                  <Image
-                    src={`data:image/png;base64,${selectedElement.elementScreenshot}`}
-                    alt="Selected element"
-                    radius="sm"
-                    mah={200}
-                    fit="contain"
-                    style={{ border: '1px solid var(--mantine-color-gray-3)' }}
-                  />
-                </Box>
-              )}
-            </Paper>
-
-            {/* Change instruction */}
-            <Paper p="md" radius="md" withBorder>
-              <Text size="sm" fw={500} mb="xs">
-                What do you want to change?
-              </Text>
-              <Textarea
-                placeholder="e.g., Change the button text to 'Save & Continue' and make it green..."
-                value={instruction}
-                onChange={(e) => setInstruction(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
-                autosize
-                minRows={2}
-                maxRows={5}
-                mb="sm"
-              />
-              <Group justify="flex-end">
-                <Button
-                  onClick={handleSubmit}
-                  loading={isSubmitting}
-                  disabled={!instruction.trim()}
-                  color="teal"
+            {requirements.length > 0 && (
+              <Badge size="xs" variant="light" color="teal">
+                {requirements.length} requirement{requirements.length !== 1 ? 's' : ''}
+              </Badge>
+            )}
+          </Group>
+          <Group gap="xs">
+            <Button
+              size="xs"
+              radius="xl"
+              variant={inspectMode ? 'filled' : 'outline'}
+              color={inspectMode ? 'teal' : 'gray'}
+              onClick={() => {
+                const enabling = !inspectMode;
+                onToggleInspect(enabling);
+                if (enabling && phase !== 'inspecting') {
+                  setPhase('inspecting');
+                  addBotMessage(INSPECT_ACTIVE_MSG);
+                }
+              }}
+            >
+              {inspectMode ? 'Stop Inspect' : 'Inspect'}
+            </Button>
+            <Tooltip label="Close browser">
+              <ActionIcon size="sm" variant="subtle" color="gray" onClick={onClose}>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  Generate Requirement
-                </Button>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        </Group>
+      )}
+
+      {/* Chat messages */}
+      <Box flex={1} style={{ overflow: 'hidden', minHeight: 0 }}>
+        <ScrollArea h="100%" scrollbarSize={8} type="always">
+          <Stack gap={0} py="md">
+            {messages.map((msg) => (
+              <Box
+                key={msg.id}
+                py="md"
+                px="md"
+                style={{
+                  background: msg.role === 'user' ? themedColor('userMsgBg') : 'transparent',
+                }}
+              >
+                <Group
+                  align="flex-start"
+                  gap="md"
+                  wrap="nowrap"
+                  maw={contentMaxWidth}
+                  mx="auto"
+                  w="100%"
+                >
+                  <Avatar role={msg.role} />
+                  <Box flex={1} pt={2}>
+                    <Text size="xs" fw={600} mb={4}>
+                      {msg.role === 'user' ? 'You' : 'Virtual PM'}
+                    </Text>
+
+                    {/* Screenshot inline */}
+                    {msg.screenshot && (
+                      <Box mb="sm">
+                        <Image
+                          src={`data:image/png;base64,${msg.screenshot}`}
+                          alt="Captured element"
+                          radius="sm"
+                          mah={200}
+                          fit="contain"
+                          style={{ border: '1px solid var(--mantine-color-gray-3)' }}
+                        />
+                      </Box>
+                    )}
+
+                    {/* Element metadata badge */}
+                    {msg.element && (
+                      <Group gap="xs" mb="xs">
+                        <Badge size="sm" variant="outline" color="teal">
+                          {msg.element.selector.split(' > ').pop()}
+                        </Badge>
+                        {msg.element.ariaRole && (
+                          <Badge size="sm" variant="light" color="gray">
+                            role={msg.element.ariaRole}
+                          </Badge>
+                        )}
+                      </Group>
+                    )}
+
+                    {/* Message content */}
+                    <Box className="orka-markdown" style={{ fontSize: 14, lineHeight: 1.7 }}>
+                      <Markdown>{msg.content}</Markdown>
+                    </Box>
+
+                    {/* Action buttons */}
+                    {msg.actions && msg.actions.length > 0 && (
+                      <Group gap="xs" mt="sm" wrap="wrap">
+                        {msg.actions.map((action, i) => (
+                          <Button
+                            key={i}
+                            size="xs"
+                            radius="xl"
+                            variant="outline"
+                            color="teal"
+                            onClick={() => handleAction(action.action)}
+                          >
+                            {action.label}
+                          </Button>
+                        ))}
+                      </Group>
+                    )}
+                  </Box>
+                </Group>
+              </Box>
+            ))}
+
+            {/* Animated thinking indicator */}
+            {(isThinking || isSubmitting) && (
+              <Box py="md" px="md">
+                <Group
+                  align="flex-start"
+                  gap="md"
+                  wrap="nowrap"
+                  maw={contentMaxWidth}
+                  mx="auto"
+                  w="100%"
+                >
+                  <Avatar role="assistant" />
+                  <Box pt={2}>
+                    <ThinkingAnimation operation={thinkingOp} />
+                  </Box>
+                </Group>
+              </Box>
+            )}
+
+            <div ref={bottomRef} />
+          </Stack>
+        </ScrollArea>
+      </Box>
+
+      {/* Input bar */}
+      <Box px="md" pb="md" pt="xs">
+        <Box maw={contentMaxWidth} mx="auto" w="100%">
+          {/* URL input for idle phase */}
+          {phase === 'idle' && !session ? (
+            <Paper radius="xl" p={4} style={{ background: themedColor('inputBg'), border: 'none' }}>
+              <Group gap={0} align="flex-end" wrap="nowrap" px="sm" py={6}>
+                <TextInput
+                  flex={1}
+                  placeholder="Paste your app URL (e.g., https://your-app.example.com)"
+                  value={url}
+                  onChange={(e) => setUrl(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSend(url);
+                    }
+                  }}
+                  variant="unstyled"
+                  styles={{
+                    input: { fontSize: '0.95rem', padding: '8px 12px' },
+                  }}
+                />
+                <Box pb={4}>
+                  <Button
+                    size="xs"
+                    radius="xl"
+                    color="teal"
+                    onClick={() => handleSend(url)}
+                    loading={isStarting}
+                  >
+                    Open Browser
+                  </Button>
+                </Box>
               </Group>
             </Paper>
-          </Stack>
-        )}
+          ) : (
+            <Paper radius="xl" p={4} style={{ background: themedColor('inputBg'), border: 'none' }}>
+              <MessageInput
+                onSend={handleSend}
+                disabled={isThinking || isSubmitting || phase === 'generating'}
+                placeholder={
+                  phase === 'inspecting'
+                    ? 'Click an element in Chrome first...'
+                    : phase === 'element_captured'
+                      ? 'Describe what you want to change...'
+                      : phase === 'ask_repo'
+                        ? 'Paste a GitHub repo URL or type "skip"...'
+                        : 'Message Virtual PM...'
+                }
+              />
+            </Paper>
+          )}
+
+          <Text size="xs" c="dimmed" ta="center" mt={8}>
+            Virtual PM can make mistakes. Review the generated requirements carefully.
+          </Text>
+        </Box>
       </Box>
     </Stack>
   );

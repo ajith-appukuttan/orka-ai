@@ -38,6 +38,32 @@ const SUBMIT_CHANGE = gql`
   }
 `;
 
+const SAVE_VISUAL_SELECTION = gql`
+  mutation SaveVisualSelection(
+    $sessionId: ID!
+    $selector: String!
+    $domPath: String
+    $textContent: String
+    $boundingBox: JSON!
+    $ariaRole: String
+    $screenshotRef: String
+    $pageUrl: String!
+  ) {
+    saveVisualSelection(
+      sessionId: $sessionId
+      selector: $selector
+      domPath: $domPath
+      textContent: $textContent
+      boundingBox: $boundingBox
+      ariaRole: $ariaRole
+      screenshotRef: $screenshotRef
+      pageUrl: $pageUrl
+    ) {
+      id
+    }
+  }
+`;
+
 const GET_VISUAL_REQUIREMENTS = gql`
   query GetVisualRequirements($workspaceId: ID!) {
     visualRequirements(workspaceId: $workspaceId) {
@@ -100,6 +126,7 @@ export function useVisualIntake(workspaceId: string | undefined) {
 
   const [startSessionMutation, { loading: starting }] = useMutation(START_VISUAL_SESSION);
   const [submitChangeMutation, { loading: submitting }] = useMutation(SUBMIT_CHANGE);
+  const [saveSelectionMutation] = useMutation(SAVE_VISUAL_SELECTION);
 
   const { data: reqsData, refetch: refetchReqs } = useQuery(GET_VISUAL_REQUIREMENTS, {
     variables: { workspaceId },
@@ -181,15 +208,38 @@ export function useVisualIntake(workspaceId: string | undefined) {
         if (!response.ok) return;
         const data = await response.json();
         if (data.selection) {
+          const sel = data.selection;
+          const boundingBox = sel.boundingBox || { x: 0, y: 0, width: 0, height: 0 };
+
+          // Persist to database so submitVisualChange can find it
+          let dbId: string | null = null;
+          try {
+            const { data: saveData } = await saveSelectionMutation({
+              variables: {
+                sessionId: session.id,
+                selector: sel.selector || '',
+                domPath: sel.domPath || null,
+                textContent: sel.textContent || null,
+                boundingBox,
+                ariaRole: sel.ariaRole || null,
+                screenshotRef: data.screenshot || null,
+                pageUrl: sel.pageUrl || '',
+              },
+            });
+            dbId = saveData?.saveVisualSelection?.id;
+          } catch {
+            // fallback to client-generated ID if save fails
+          }
+
           const el: SelectedElement = {
-            id: crypto.randomUUID(),
-            selector: data.selection.selector || '',
-            domPath: data.selection.domPath || '',
-            textContent: data.selection.textContent || '',
-            boundingBox: data.selection.boundingBox || { x: 0, y: 0, width: 0, height: 0 },
-            ariaRole: data.selection.ariaRole || null,
+            id: dbId || crypto.randomUUID(),
+            selector: sel.selector || '',
+            domPath: sel.domPath || '',
+            textContent: sel.textContent || '',
+            boundingBox,
+            ariaRole: sel.ariaRole || null,
             elementScreenshot: data.screenshot || null,
-            pageUrl: data.selection.pageUrl || '',
+            pageUrl: sel.pageUrl || '',
           };
           setSelectedElement(el);
           setLastInspectedElement(el);

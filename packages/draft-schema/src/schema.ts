@@ -6,12 +6,23 @@ import { z } from 'zod';
 /**
  * Visual requirement generated from UI element inspection.
  */
+export const ChangeCategoryEnum = z.enum([
+  'STYLE',
+  'LAYOUT',
+  'CONTENT',
+  'INTERACTION',
+  'VALIDATION',
+  'ACCESSIBILITY',
+  'DATA_DISPLAY',
+]);
+
 export const VisualRequirementSchema = z.object({
   title: z.string().default(''),
   summary: z.string().default(''),
   userGoal: z.string().default(''),
   targetArea: z.string().default(''),
   requestedChange: z.string().default(''),
+  changeCategory: ChangeCategoryEnum.optional(),
   acceptanceCriteria: z.array(z.string()).default([]),
   implementationHints: z.array(z.string()).default([]),
   openQuestions: z.array(z.string()).default([]),
@@ -101,6 +112,7 @@ export const IntakeDraftSchema = z.object({
 
 export const IntakeDraftPatchSchema = IntakeDraftSchema.partial();
 
+export type ChangeCategory = z.infer<typeof ChangeCategoryEnum>;
 export type VisualRequirement = z.infer<typeof VisualRequirementSchema>;
 export type UserStory = z.infer<typeof UserStorySchema>;
 export type IntakeDraft = z.infer<typeof IntakeDraftSchema>;
@@ -166,6 +178,7 @@ export function computeReadinessScore(draft: IntakeDraft): number {
     { filled: draft.constraints.length > 0, weight: 0.5 },
     { filled: draft.trigger.length > 0, weight: 0.5 },
     { filled: draft.assumptions.length > 0, weight: 0.5 },
+    { filled: draft.uiRequirements.length > 0, weight: 1 },
   ];
 
   const allFields = [...corePrompts, ...supplementary];

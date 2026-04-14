@@ -6,6 +6,7 @@ import { approvalResolvers } from './approval.js';
 import { artifactResolvers } from './artifacts.js';
 import { memoryResolvers } from './memory.js';
 import { visualResolvers } from './visual.js';
+import { repoResolvers } from './repo.js';
 
 export const resolvers = {
   Query: {
@@ -16,6 +17,7 @@ export const resolvers = {
     ...memoryResolvers.Query,
     ...visualResolvers.Query,
     ...artifactResolvers.Query,
+    ...repoResolvers.Query,
   },
   Mutation: {
     ...workspaceResolvers.Mutation,
@@ -25,13 +27,18 @@ export const resolvers = {
     ...approvalResolvers.Mutation,
     ...memoryResolvers.Mutation,
     ...visualResolvers.Mutation,
+    ...repoResolvers.Mutation,
   },
   Subscription: {
     ...messageResolvers.Subscription,
     ...draftResolvers.Subscription,
     ...memoryResolvers.Subscription,
+    ...visualResolvers.Subscription,
   },
   // Type resolvers
-  IntakeWorkspace: workspaceResolvers.IntakeWorkspace,
+  IntakeWorkspace: {
+    ...workspaceResolvers.IntakeWorkspace,
+    ...repoResolvers.IntakeWorkspace,
+  },
   IntakeSession: sessionResolvers.IntakeSession,
 };
