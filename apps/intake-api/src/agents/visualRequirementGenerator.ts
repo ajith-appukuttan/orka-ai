@@ -18,6 +18,7 @@ export interface GeneratedVisualRequirement {
   implementationHints: string[];
   openQuestions: string[];
   confidence: number;
+  status: string;
 }
 
 /**
@@ -94,7 +95,7 @@ export async function runVisualRequirementGenerator(
                  requested_change as "requestedChange", change_category as "changeCategory",
                  acceptance_criteria as "acceptanceCriteria",
                  implementation_hints as "implementationHints",
-                 open_questions as "openQuestions", confidence`,
+                 open_questions as "openQuestions", confidence, status`,
       [
         workspaceId,
         selectionId,
