@@ -152,6 +152,19 @@ export async function runRepoAnalyzer(
       `Repo analysis complete: ${repoUrl} — ${(analysis.keyComponents as unknown[])?.length || 0} components found`,
     );
 
+    // Auto-map visual requirements to code targets using GitHub Search
+    try {
+      console.info('Auto-mapping visual requirements to code targets...');
+      const mappings = await mapRequirementsToCode(workspaceId);
+      const totalTargets = mappings.reduce((sum, m) => sum + m.codeTargets.length, 0);
+      console.info(
+        `Code target mapping complete: ${mappings.length} requirements mapped to ${totalTargets} source files`,
+      );
+    } catch (mapErr) {
+      // Non-fatal — the analysis itself succeeded
+      console.warn('Code target mapping failed (non-fatal):', mapErr);
+    }
+
     return {
       id: analysisId,
       repoUrl,
