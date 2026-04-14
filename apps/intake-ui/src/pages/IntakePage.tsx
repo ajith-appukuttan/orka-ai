@@ -515,7 +515,7 @@ export function IntakePage() {
                 </>
               ) : (
                 <>
-                  {/* Visual panel — full width */}
+                  {/* Visual panel — chat-style, full width */}
                   <Box flex={1} style={{ overflow: 'hidden' }}>
                     <VisualIntakePanel
                       session={visual.session}
@@ -528,6 +528,7 @@ export function IntakePage() {
                       onToggleInspect={visual.toggleInspect}
                       onSubmitChange={visual.submitChange}
                       onClose={visual.closePreview}
+                      requirements={visual.requirements}
                     />
                   </Box>
                 </>
