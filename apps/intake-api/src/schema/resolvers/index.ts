@@ -7,6 +7,7 @@ import { artifactResolvers } from './artifacts.js';
 import { memoryResolvers } from './memory.js';
 import { visualResolvers } from './visual.js';
 import { repoResolvers } from './repo.js';
+import { classificationResolvers } from './classification.js';
 
 export const resolvers = {
   Query: {
@@ -18,6 +19,7 @@ export const resolvers = {
     ...visualResolvers.Query,
     ...artifactResolvers.Query,
     ...repoResolvers.Query,
+    ...classificationResolvers.Query,
   },
   Mutation: {
     ...workspaceResolvers.Mutation,

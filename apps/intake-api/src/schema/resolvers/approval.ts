@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { query, getClient } from '../../db/pool.js';
 import { generateRunId } from '../../services/runId.js';
 import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/object-storage';
+import { runIntakeReadinessClassifier } from '../../agents/intakeReadinessClassifier.js';
 
 const storageClient = createStorageClient();
 
@@ -168,7 +169,23 @@ export const approvalResolvers = {
 
         console.info(`PRD approved: session=${sessionId}, run=${runId}, key=${objectKey}`);
 
-        return artifactResult.rows[0];
+        // Auto-trigger intake readiness classifier (non-blocking)
+        const artifactRow = artifactResult.rows[0];
+        const classifierTenantId = session.tenant_id || 'default';
+        const classifierWorkspaceId = session.workspace_id;
+        if (classifierWorkspaceId) {
+          runIntakeReadinessClassifier(
+            runId,
+            artifactRow.id,
+            classifierWorkspaceId,
+            classifierTenantId,
+            draftPayload as Record<string, unknown>,
+          ).catch((err) => {
+            console.error('Intake classifier failed (non-blocking):', err);
+          });
+        }
+
+        return artifactRow;
       } catch (err) {
         await client.query('ROLLBACK');
         throw err;

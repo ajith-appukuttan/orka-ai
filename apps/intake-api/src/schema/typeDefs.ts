@@ -217,6 +217,22 @@ export const typeDefs = `#graphql
     downloadUrl: String
   }
 
+  # ─── Intake Readiness Classification ──────────────────
+  type IntakeClassification {
+    id: ID!
+    runId: String!
+    approvedArtifactId: ID!
+    classification: String!
+    buildReadinessScore: Float!
+    reasoningSummary: String
+    signals: JSON!
+    requiredNextStages: [String!]!
+    blockingQuestions: [String!]!
+    confidence: Float!
+    objectKey: String
+    createdAt: DateTime!
+  }
+
   type AggregatedPRD {
     title: String!
     summary: String!
@@ -267,6 +283,10 @@ export const typeDefs = `#graphql
     codeTargetsForRequirement(requirementId: ID!): [CodeTarget!]!
 
     # Search
+    # Classification queries
+    intakeClassification(runId: String!): IntakeClassification
+    intakeClassifications(workspaceId: ID!): [IntakeClassification!]!
+
     searchIntake(query: String!, tenantId: String!): [SearchResult!]!
 
     # Approved artifact queries
