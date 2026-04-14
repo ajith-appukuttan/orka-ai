@@ -165,10 +165,31 @@ export const repoDiscoveryTool: ToolHandler = {
   },
   execute: async (input) => {
     const repoUrl = input.repoUrl as string;
-    const branch = (input.branch as string) || 'main';
+    let branch = (input.branch as string) || '';
 
     if (!repoUrl) {
       return { error: 'repoUrl is required' };
+    }
+
+    // Auto-detect default branch via GitHub API if not specified
+    if (!branch) {
+      const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+      try {
+        // Extract owner/repo from URL
+        const match = repoUrl.match(/github\.com[/:]([^/]+)\/([^/.]+)/);
+        if (match && token) {
+          const resp = await fetch(`https://api.github.com/repos/${match[1]}/${match[2]}`, {
+            headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' },
+          });
+          if (resp.ok) {
+            const data = (await resp.json()) as { default_branch: string };
+            branch = data.default_branch;
+          }
+        }
+      } catch {
+        // fall through to default
+      }
+      if (!branch) branch = 'main';
     }
 
     // Normalize the URL
