@@ -10,6 +10,7 @@ import {
   SegmentedControl,
 } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, gql } from '@apollo/client';
 import { ChatPanel } from '../components/chat/ChatPanel';
 import { DraftSidePanel } from '../components/draft/DraftSidePanel';
 import { MemoryPanel } from '../components/draft/MemoryPanel';
@@ -27,6 +28,19 @@ import { useMemory } from '../hooks/useMemory';
 import { useSearch } from '../hooks/useSearch';
 import { useVisualIntake } from '../hooks/useVisualIntake';
 import { useTheme } from '../hooks/useTheme';
+
+const ANALYZE_REPO = gql`
+  mutation AnalyzeRepo($workspaceId: ID!, $repoUrl: String!, $branch: String) {
+    analyzeRepository(workspaceId: $workspaceId, repoUrl: $repoUrl, branch: $branch) {
+      id
+      repoUrl
+      status
+      readmeSummary
+      techStack
+      keyComponents
+    }
+  }
+`;
 
 type IntakeMode = 'chat' | 'visual';
 
@@ -56,9 +70,27 @@ export function IntakePage() {
     useChat(activeSessionId);
   const { draft, readinessScore } = useDraft(activeSessionId, activeWorkspaceId);
   const { items: memoryItems, archive: archiveMemory } = useMemory(activeWorkspaceId);
+  const [analyzeRepoMutation] = useMutation(ANALYZE_REPO);
   const { results: searchResults, loading: searchLoading, search } = useSearch(TENANT_ID);
   const visual = useVisualIntake(activeWorkspaceId);
   const extension = useExtensionBridge();
+
+  // Analyze repo from visual intake
+  const handleAnalyzeRepo = useCallback(
+    async (repoUrl: string) => {
+      if (!activeWorkspaceId) return;
+      try {
+        console.info('[IntakePage] Analyzing repo:', repoUrl);
+        await analyzeRepoMutation({
+          variables: { workspaceId: activeWorkspaceId, repoUrl },
+        });
+        console.info('[IntakePage] Repo analysis complete');
+      } catch (err) {
+        console.error('[IntakePage] Repo analysis failed:', err);
+      }
+    },
+    [activeWorkspaceId, analyzeRepoMutation],
+  );
 
   // When workspace ID becomes available and there's a pending visual URL, start the preview
   useEffect(() => {
@@ -491,48 +523,50 @@ export function IntakePage() {
               wrap="nowrap"
               style={{ overflow: 'hidden' }}
             >
-              {intakeMode === 'chat' ? (
-                <>
-                  {/* Chat panel */}
-                  <Box
-                    style={{
-                      width: `${chatWidthPct}%`,
-                      minWidth: MIN_PANEL_WIDTH,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <ChatPanel
-                      messages={messages}
-                      onSendMessage={send}
-                      isLoading={isSending}
-                      isStreaming={isStreaming}
-                      streamingContent={streamingContent}
-                    />
-                  </Box>
+              {/* Chat panel — hidden when in visual mode */}
+              <Box
+                style={{
+                  width: intakeMode === 'chat' ? `${chatWidthPct}%` : undefined,
+                  minWidth: intakeMode === 'chat' ? MIN_PANEL_WIDTH : undefined,
+                  overflow: 'hidden',
+                  display: intakeMode === 'chat' ? undefined : 'none',
+                }}
+              >
+                <ChatPanel
+                  messages={messages}
+                  onSendMessage={send}
+                  isLoading={isSending}
+                  isStreaming={isStreaming}
+                  streamingContent={streamingContent}
+                />
+              </Box>
 
-                  {/* Resize handle */}
-                  <ResizeHandle onResize={handleResize} />
-                </>
-              ) : (
-                <>
-                  {/* Visual panel — chat-style, full width */}
-                  <Box flex={1} style={{ overflow: 'hidden' }}>
-                    <VisualIntakePanel
-                      session={visual.session}
-                      selectedElement={visual.selectedElement}
-                      inspectMode={visual.inspectMode}
-                      browserStatus={visual.browserStatus}
-                      isStarting={visual.isStarting}
-                      isSubmitting={visual.isSubmitting}
-                      onStartPreview={visual.startPreview}
-                      onToggleInspect={visual.toggleInspect}
-                      onSubmitChange={visual.submitChange}
-                      onClose={visual.closePreview}
-                      requirements={visual.requirements}
-                    />
-                  </Box>
-                </>
-              )}
+              {/* Resize handle — only in chat mode */}
+              {intakeMode === 'chat' && <ResizeHandle onResize={handleResize} />}
+
+              {/* Visual panel — hidden when in chat mode, keeps state alive */}
+              <Box
+                flex={intakeMode === 'visual' ? 1 : undefined}
+                style={{
+                  overflow: 'hidden',
+                  display: intakeMode === 'visual' ? undefined : 'none',
+                }}
+              >
+                <VisualIntakePanel
+                  session={visual.session}
+                  selectedElement={visual.selectedElement}
+                  inspectMode={visual.inspectMode}
+                  browserStatus={visual.browserStatus}
+                  isStarting={visual.isStarting}
+                  isSubmitting={visual.isSubmitting}
+                  onStartPreview={visual.startPreview}
+                  onToggleInspect={visual.toggleInspect}
+                  onSubmitChange={visual.submitChange}
+                  onClose={visual.closePreview}
+                  onAnalyzeRepo={handleAnalyzeRepo}
+                  requirements={visual.requirements}
+                />
+              </Box>
 
               {/* Draft PRD panel — only in Chat mode */}
               {intakeMode === 'chat' && (
