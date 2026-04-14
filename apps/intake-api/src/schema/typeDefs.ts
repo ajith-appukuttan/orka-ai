@@ -10,6 +10,10 @@ export const typeDefs = `#graphql
     status: WorkspaceStatus!
     latestDraftId: ID
     latestSummaryId: ID
+    repoUrl: String
+    repoProvider: String
+    repoDefaultBranch: String
+    repoStatus: String
     createdBy: String!
     createdAt: DateTime!
     updatedAt: DateTime!
@@ -17,6 +21,7 @@ export const typeDefs = `#graphql
     sessions: [IntakeSession!]!
     latestDraft: IntakeDraftVersion
     readinessScore: Float
+    repoAnalysis: RepositoryAnalysis
   }
 
   enum WorkspaceStatus {
@@ -24,6 +29,33 @@ export const typeDefs = `#graphql
     REVIEWING
     APPROVED
     ARCHIVED
+  }
+
+  # ─── Repository Analysis ────────────────────────────────
+  type RepositoryAnalysis {
+    id: ID!
+    repoUrl: String!
+    status: String!
+    readmeSummary: String
+    techStack: JSON!
+    keyComponents: JSON!
+    architectureNotes: String
+    entryPoints: JSON!
+    analyzedAt: DateTime
+    createdAt: DateTime!
+  }
+
+  type CodeTarget {
+    id: ID!
+    filePath: String!
+    symbolName: String
+    matchReason: String
+    confidence: Float!
+  }
+
+  type CodeTargetMapping {
+    requirementId: ID!
+    codeTargets: [CodeTarget!]!
   }
 
   # ─── Session ────────────────────────────────────────────
@@ -230,6 +262,10 @@ export const typeDefs = `#graphql
     # Memory queries
     intakeMemoryItems(workspaceId: ID!): [IntakeMemoryItem!]!
 
+    # Repository queries
+    repositoryAnalysis(workspaceId: ID!): RepositoryAnalysis
+    codeTargetsForRequirement(requirementId: ID!): [CodeTarget!]!
+
     # Search
     searchIntake(query: String!, tenantId: String!): [SearchResult!]!
 
@@ -371,6 +407,18 @@ export const typeDefs = `#graphql
     generateVisualPRD(
       workspaceId: ID!
     ): AggregatedPRD!
+
+    # Repository analysis mutations
+    analyzeRepository(
+      workspaceId: ID!
+      repoUrl: String!
+      branch: String
+    ): RepositoryAnalysis!
+
+    mapRequirementsToCode(
+      workspaceId: ID!
+      requirementIds: [ID!]
+    ): [CodeTargetMapping!]!
   }
 
   # ═══════════════════════════════════════════════════════

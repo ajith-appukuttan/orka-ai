@@ -22,6 +22,7 @@ const toolPlannerPrompt = loadPrompt('tool-planner.md');
 const summaryGeneratorPrompt = loadPrompt('summary-generator.md');
 const memoryCuratorPrompt = loadPrompt('memory-curator.md');
 const visualIntakePrompt = loadPrompt('visual-intake.md');
+const repoAnalyzerPrompt = loadPrompt('repo-analyzer.md');
 
 export interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -313,6 +314,55 @@ Aggregate these visual requirements into a single coherent PRD. Deduplicate over
     model: config.vertex.model,
     max_tokens: 4096,
     system: prdAggregatorPrompt,
+    messages: [{ role: 'user', content: userContent }],
+  });
+
+  const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
+  return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '{}';
+}
+
+export interface RepoAnalysisInput {
+  readme: string | null;
+  fileTree: string[];
+  manifests: Array<Record<string, unknown>>;
+  entryPoints: string[];
+  entryPointContents: Record<string, string>;
+}
+
+/**
+ * Analyze a repository's structure and extract key metadata.
+ */
+export async function analyzeRepository(input: RepoAnalysisInput): Promise<string> {
+  const manifestSection = input.manifests
+    .map((m) => `### ${m.file}\n\`\`\`\n${m.content}\n\`\`\``)
+    .join('\n\n');
+
+  const entryPointSection = Object.entries(input.entryPointContents)
+    .map(([file, content]) => `### ${file}\n\`\`\`\n${content}\n\`\`\``)
+    .join('\n\n');
+
+  const userContent = `## README
+${input.readme || 'No README found.'}
+
+## File Tree (${input.fileTree.length} entries)
+\`\`\`
+${input.fileTree.slice(0, 300).join('\n')}
+\`\`\`
+
+## Package Manifests
+${manifestSection || 'None found.'}
+
+## Entry Points
+${input.entryPoints.join(', ') || 'None detected.'}
+
+${entryPointSection ? `## Entry Point Contents\n${entryPointSection}` : ''}
+
+Analyze this repository and return the structured JSON. Focus on identifying UI components, pages, and services that would be relevant for mapping visual UI requirements to code.`;
+
+  const response = await client.messages.create({
+    model: config.vertex.model,
+    max_tokens: 4096,
+    system: repoAnalyzerPrompt,
     messages: [{ role: 'user', content: userContent }],
   });
 

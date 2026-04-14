@@ -14,11 +14,14 @@
     "@orka/shared-types": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.21.0",
+    "glob": "^13.0.6",
+    "simple-git": "^3.36.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/glob": "^9.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

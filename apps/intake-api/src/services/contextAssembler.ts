@@ -11,6 +11,14 @@ export interface VisualRequirementContext {
   status: string;
 }
 
+export interface RepoAnalysisContext {
+  repoUrl: string;
+  readmeSummary: string | null;
+  techStack: Array<{ category: string; name: string }>;
+  keyComponents: Array<{ filePath: string; symbolName: string; type: string; description: string }>;
+  architectureNotes: string | null;
+}
+
 export interface RuntimeContext {
   // Session info
   sessionId: string;
@@ -34,6 +42,9 @@ export interface RuntimeContext {
 
   // Visual requirements captured from UI inspection
   visualRequirements: VisualRequirementContext[];
+
+  // Repository analysis context
+  repoAnalysis: RepoAnalysisContext | null;
 }
 
 /**
@@ -135,6 +146,43 @@ async function loadMemoryItems(
 }
 
 /**
+ * Load the latest repository analysis for the workspace.
+ */
+async function loadRepoAnalysis(workspaceId: string | null): Promise<RepoAnalysisContext | null> {
+  if (!workspaceId) return null;
+
+  const result = await query<{
+    repo_url: string;
+    readme_summary: string | null;
+    tech_stack: Array<{ category: string; name: string }>;
+    key_components: Array<{
+      filePath: string;
+      symbolName: string;
+      type: string;
+      description: string;
+    }>;
+    architecture_notes: string | null;
+  }>(
+    `SELECT repo_url, readme_summary, tech_stack, key_components, architecture_notes
+     FROM repository_analyses
+     WHERE intake_workspace_id = $1 AND analysis_status = 'READY'
+     ORDER BY analyzed_at DESC LIMIT 1`,
+    [workspaceId],
+  );
+
+  if (result.rows.length === 0) return null;
+
+  const row = result.rows[0];
+  return {
+    repoUrl: row.repo_url,
+    readmeSummary: row.readme_summary,
+    techStack: row.tech_stack || [],
+    keyComponents: row.key_components || [],
+    architectureNotes: row.architecture_notes,
+  };
+}
+
+/**
  * Load visual requirements for context awareness.
  */
 async function loadVisualRequirements(
@@ -162,13 +210,14 @@ export async function assembleContext(sessionId: string): Promise<RuntimeContext
   const tenantId = await loadTenantId(sessionId);
 
   // Load all context in parallel
-  const [recentMessages, currentDraft, summary, memoryItems, visualRequirements] =
+  const [recentMessages, currentDraft, summary, memoryItems, visualRequirements, repoAnalysis] =
     await Promise.all([
       loadRecentMessages(sessionId),
       loadCurrentDraft(sessionId, workspaceId),
       loadSummary(workspaceId),
       loadMemoryItems(workspaceId),
       loadVisualRequirements(workspaceId),
+      loadRepoAnalysis(workspaceId),
     ]);
 
   // Extract open questions from draft
@@ -188,6 +237,7 @@ export async function assembleContext(sessionId: string): Promise<RuntimeContext
     memoryItems,
     openQuestions,
     visualRequirements,
+    repoAnalysis,
   };
 }
 
@@ -217,6 +267,19 @@ export function formatContextForPrompt(ctx: RuntimeContext): string {
       .join('\n');
     parts.push(
       `## Project Memory\n\nThe following facts have been established in prior sessions. Use them without re-asking:\n\n${memoryText}`,
+    );
+  }
+
+  // Repository analysis
+  if (ctx.repoAnalysis) {
+    const techList = ctx.repoAnalysis.techStack.map((t) => `${t.name} (${t.category})`).join(', ');
+    const componentList = ctx.repoAnalysis.keyComponents
+      .slice(0, 15)
+      .map((c) => `- \`${c.filePath}\` — **${c.symbolName}** [${c.type}]: ${c.description}`)
+      .join('\n');
+
+    parts.push(
+      `## Repository Context\n\n**Repo**: ${ctx.repoAnalysis.repoUrl}\n**Tech Stack**: ${techList}\n${ctx.repoAnalysis.readmeSummary ? `**Summary**: ${ctx.repoAnalysis.readmeSummary}\n` : ''}${ctx.repoAnalysis.architectureNotes ? `**Architecture**: ${ctx.repoAnalysis.architectureNotes}\n` : ''}\n### Key Components\n${componentList}`,
     );
   }
 

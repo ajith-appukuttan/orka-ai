@@ -7,6 +7,9 @@ export const workspaceResolvers = {
         `SELECT id, tenant_id as "tenantId", title, status,
                 latest_draft_id as "latestDraftId",
                 latest_summary_id as "latestSummaryId",
+                repo_url as "repoUrl", repo_provider as "repoProvider",
+                repo_default_branch as "repoDefaultBranch",
+                repo_status as "repoStatus",
                 created_by as "createdBy",
                 created_at as "createdAt", updated_at as "updatedAt"
          FROM intake_workspaces
@@ -22,6 +25,9 @@ export const workspaceResolvers = {
         `SELECT id, tenant_id as "tenantId", title, status,
                 latest_draft_id as "latestDraftId",
                 latest_summary_id as "latestSummaryId",
+                repo_url as "repoUrl", repo_provider as "repoProvider",
+                repo_default_branch as "repoDefaultBranch",
+                repo_status as "repoStatus",
                 created_by as "createdBy",
                 created_at as "createdAt", updated_at as "updatedAt"
          FROM intake_workspaces WHERE id = $1`,

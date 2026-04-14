@@ -11,10 +11,16 @@ import { auditToolCall } from './middleware/audit.js';
 import { templateDiscoveryTool } from './tools/templateDiscovery.js';
 import { standardsLookupTool } from './tools/standardsLookup.js';
 import { integrationDiscoveryTool } from './tools/integrationDiscovery.js';
+import { repoDiscoveryTool } from './tools/repoDiscovery.js';
+import { codeSearchTool } from './tools/codeSearch.js';
+import { fileReaderTool } from './tools/fileReader.js';
 
 registry.register(templateDiscoveryTool);
 registry.register(standardsLookupTool);
 registry.register(integrationDiscoveryTool);
+registry.register(repoDiscoveryTool);
+registry.register(codeSearchTool);
+registry.register(fileReaderTool);
 
 const app = express();
 app.use(cors());
