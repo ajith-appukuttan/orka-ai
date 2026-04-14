@@ -3,6 +3,7 @@ import { query, getClient } from '../../db/pool.js';
 import { generateRunId } from '../../services/runId.js';
 import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/object-storage';
 import { runIntakeReadinessClassifier } from '../../agents/intakeReadinessClassifier.js';
+import { pubsub, EVENTS } from '../../pubsub/index.js';
 
 const storageClient = createStorageClient();
 
@@ -180,9 +181,60 @@ export const approvalResolvers = {
             classifierWorkspaceId,
             classifierTenantId,
             draftPayload as Record<string, unknown>,
-          ).catch((err) => {
-            console.error('Intake classifier failed (non-blocking):', err);
-          });
+          )
+            .then(async (decision) => {
+              if (!decision) return;
+
+              // Build a human-readable classification message
+              const classLabel: Record<string, string> = {
+                DIRECT_TO_BUILD: 'Ready for Build',
+                NEEDS_ELABORATION: 'Needs Elaboration',
+                NEEDS_PLANNING: 'Needs Planning',
+                NEEDS_ELABORATION_AND_PLANNING: 'Needs Elaboration & Planning',
+                RETURN_TO_INTAKE: 'Return to Intake',
+              };
+
+              const emoji: Record<string, string> = {
+                DIRECT_TO_BUILD: '',
+                NEEDS_ELABORATION: '',
+                NEEDS_PLANNING: '',
+                NEEDS_ELABORATION_AND_PLANNING: '',
+                RETURN_TO_INTAKE: '',
+              };
+
+              const label = classLabel[decision.classification] || decision.classification;
+              const icon = emoji[decision.classification] || '';
+
+              let content = `## ${icon} Intake Readiness: ${label}\n\n`;
+              content += `**Build Readiness Score:** ${Math.round(decision.buildReadinessScore * 100)}% | **Confidence:** ${Math.round(decision.confidence * 100)}%\n\n`;
+              content += `${decision.reasoningSummary}\n\n`;
+
+              if (decision.blockingQuestions.length > 0) {
+                content += `**Blocking Questions:**\n${decision.blockingQuestions.map((q) => `- ${q}`).join('\n')}\n\n`;
+              }
+
+              content += `**Next Stages:** ${decision.requiredNextStages.join(' → ')}\n`;
+              content += `\n*Run ID: ${decision.runId}*`;
+
+              // Persist as a system message in the chat
+              const msgResult = await query(
+                `INSERT INTO intake_messages (session_id, role, content)
+               VALUES ($1, 'assistant', $2)
+               RETURNING id, session_id as "sessionId", role, content,
+                         tool_calls as "toolCalls", created_at as "createdAt"`,
+                [sessionId, content],
+              );
+
+              // Publish via subscription so the UI picks it up
+              if (msgResult.rows[0]) {
+                pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
+                  intakeMessageStream: msgResult.rows[0],
+                });
+              }
+            })
+            .catch((err) => {
+              console.error('Intake classifier failed (non-blocking):', err);
+            });
         }
 
         return artifactRow;
