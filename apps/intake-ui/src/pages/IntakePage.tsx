@@ -6,6 +6,7 @@ import {
   ScrollArea,
   Text,
   ActionIcon,
+  Button,
   Tooltip,
   SegmentedControl,
 } from '@mantine/core';
@@ -504,8 +505,13 @@ export function IntakePage() {
                   ]}
                 />
               </Group>
-              <Tooltip label="Close session">
-                <ActionIcon size="xs" variant="subtle" color="gray" onClick={handleClearSession}>
+              <Button
+                size="xs"
+                radius="xl"
+                variant="subtle"
+                color="gray"
+                onClick={handleClearSession}
+                leftSection={
                   <svg
                     width="12"
                     height="12"
@@ -519,8 +525,10 @@ export function IntakePage() {
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                </ActionIcon>
-              </Tooltip>
+                }
+              >
+                Close
+              </Button>
             </Group>
 
             <ReadinessIndicator
