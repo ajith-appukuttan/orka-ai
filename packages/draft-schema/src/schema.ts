@@ -166,6 +166,7 @@ export function computeReadinessScore(draft: IntakeDraft): number {
     { filled: draft.constraints.length > 0, weight: 0.5 },
     { filled: draft.trigger.length > 0, weight: 0.5 },
     { filled: draft.assumptions.length > 0, weight: 0.5 },
+    { filled: draft.uiRequirements.length > 0, weight: 1 },
   ];
 
   const allFields = [...corePrompts, ...supplementary];

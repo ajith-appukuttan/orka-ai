@@ -3,6 +3,14 @@ import type { ConversationMessage } from './claude.js';
 
 const MAX_RECENT_MESSAGES = 20;
 
+export interface VisualRequirementContext {
+  title: string;
+  targetArea: string;
+  requestedChange: string;
+  changeCategory?: string;
+  status: string;
+}
+
 export interface RuntimeContext {
   // Session info
   sessionId: string;
@@ -23,6 +31,9 @@ export interface RuntimeContext {
 
   // Open questions from the draft
   openQuestions: string[];
+
+  // Visual requirements captured from UI inspection
+  visualRequirements: VisualRequirementContext[];
 }
 
 /**
@@ -124,6 +135,25 @@ async function loadMemoryItems(
 }
 
 /**
+ * Load visual requirements for context awareness.
+ */
+async function loadVisualRequirements(
+  workspaceId: string | null,
+): Promise<VisualRequirementContext[]> {
+  if (!workspaceId) return [];
+
+  const result = await query<VisualRequirementContext>(
+    `SELECT title, target_area as "targetArea", requested_change as "requestedChange",
+            change_category as "changeCategory", status
+     FROM visual_requirements
+     WHERE intake_workspace_id = $1 AND status != 'ARCHIVED'
+     ORDER BY created_at`,
+    [workspaceId],
+  );
+  return result.rows;
+}
+
+/**
  * Assemble the full runtime context bundle for a chat turn.
  * This replaces ad-hoc context loading in the pipeline.
  */
@@ -132,12 +162,14 @@ export async function assembleContext(sessionId: string): Promise<RuntimeContext
   const tenantId = await loadTenantId(sessionId);
 
   // Load all context in parallel
-  const [recentMessages, currentDraft, summary, memoryItems] = await Promise.all([
-    loadRecentMessages(sessionId),
-    loadCurrentDraft(sessionId, workspaceId),
-    loadSummary(workspaceId),
-    loadMemoryItems(workspaceId),
-  ]);
+  const [recentMessages, currentDraft, summary, memoryItems, visualRequirements] =
+    await Promise.all([
+      loadRecentMessages(sessionId),
+      loadCurrentDraft(sessionId, workspaceId),
+      loadSummary(workspaceId),
+      loadMemoryItems(workspaceId),
+      loadVisualRequirements(workspaceId),
+    ]);
 
   // Extract open questions from draft
   const openQuestions: string[] = Array.isArray(currentDraft.openQuestions)
@@ -155,6 +187,7 @@ export async function assembleContext(sessionId: string): Promise<RuntimeContext
     summary,
     memoryItems,
     openQuestions,
+    visualRequirements,
   };
 }
 
@@ -184,6 +217,19 @@ export function formatContextForPrompt(ctx: RuntimeContext): string {
       .join('\n');
     parts.push(
       `## Project Memory\n\nThe following facts have been established in prior sessions. Use them without re-asking:\n\n${memoryText}`,
+    );
+  }
+
+  // Visual requirements
+  if (ctx.visualRequirements.length > 0) {
+    const reqText = ctx.visualRequirements
+      .map(
+        (r) =>
+          `- **${r.title}** [${r.status}] — ${r.targetArea}: ${r.requestedChange}${r.changeCategory ? ` (${r.changeCategory})` : ''}`,
+      )
+      .join('\n');
+    parts.push(
+      `## Visual UI Requirements\n\nThe following UI changes have been captured via visual inspection. Do NOT re-ask about these:\n\n${reqText}`,
     );
   }
 

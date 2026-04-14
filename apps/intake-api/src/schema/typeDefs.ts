@@ -170,12 +170,29 @@ export const typeDefs = `#graphql
     userGoal: String!
     targetArea: String!
     requestedChange: String!
+    changeCategory: String
     acceptanceCriteria: JSON!
     implementationHints: JSON!
     openQuestions: JSON!
     confidence: Float!
     status: String!
     createdAt: DateTime
+  }
+
+  type AggregatedPRD {
+    title: String!
+    summary: String!
+    businessGoals: [String!]!
+    userStories: [String!]!
+    inScope: [String!]!
+    outOfScope: [String!]!
+    uiUxRequirements: JSON!
+    nonFunctionalRequirements: [String!]!
+    dependencies: [String!]!
+    risks: [String!]!
+    openQuestions: [String!]!
+    successMetrics: [String!]!
+    confidence: Float!
   }
 
   # ─── Streaming ─────────────────────────────────────────
@@ -321,6 +338,28 @@ export const typeDefs = `#graphql
       workspaceId: ID!
       requirementId: ID!
     ): VisualRequirement!
+
+    closeVisualSession(
+      sessionId: ID!
+    ): VisualPreviewSession!
+
+    updateVisualRequirement(
+      requirementId: ID!
+      patch: JSON!
+    ): VisualRequirement!
+
+    archiveVisualRequirement(
+      requirementId: ID!
+    ): VisualRequirement!
+
+    bulkAcceptVisualRequirements(
+      workspaceId: ID!
+      requirementIds: [ID!]!
+    ): [VisualRequirement!]!
+
+    generateVisualPRD(
+      workspaceId: ID!
+    ): AggregatedPRD!
   }
 
   # ═══════════════════════════════════════════════════════

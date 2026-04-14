@@ -232,11 +232,32 @@ export interface VisualChangeIntent {
   userInstruction: string;
 }
 
+export interface VisualRequirementContext {
+  title: string;
+  targetArea: string;
+  requestedChange: string;
+}
+
 /**
  * Convert a visual change intent into a structured requirement.
+ * Optionally enriched with existing draft and prior requirements for consistency.
  */
-export async function generateVisualRequirement(intent: VisualChangeIntent): Promise<string> {
+export async function generateVisualRequirement(
+  intent: VisualChangeIntent,
+  existingContext?: {
+    currentDraft?: Record<string, unknown>;
+    priorRequirements?: VisualRequirementContext[];
+  },
+): Promise<string> {
   const el = intent.selectedElement;
+
+  let contextSection = '';
+  if (existingContext?.currentDraft && Object.keys(existingContext.currentDraft).length > 0) {
+    contextSection += `\n## Current Draft PRD State\n\`\`\`json\n${JSON.stringify(existingContext.currentDraft, null, 2)}\n\`\`\`\n`;
+  }
+  if (existingContext?.priorRequirements && existingContext.priorRequirements.length > 0) {
+    contextSection += `\n## Previously Generated Requirements\n${existingContext.priorRequirements.map((r) => `- **${r.title}**: ${r.targetArea} — ${r.requestedChange}`).join('\n')}\n`;
+  }
 
   const userContent = `## Page URL
 ${intent.pageUrl}
@@ -248,16 +269,50 @@ ${intent.pageUrl}
 - **Text Content**: "${(el.textContent || '').substring(0, 300)}"
 - **ARIA Role**: ${el.ariaRole || 'none'}
 - **Position**: x=${el.boundingBox.x}, y=${el.boundingBox.y}, ${el.boundingBox.width}x${el.boundingBox.height}
-
+${contextSection}
 ## User Instruction
 ${intent.userInstruction}
 
-Convert this into a structured visual requirement. Return JSON only.`;
+Convert this into a structured visual requirement. Include a "changeCategory" field with one of: STYLE, LAYOUT, CONTENT, INTERACTION, VALIDATION, ACCESSIBILITY, DATA_DISPLAY. Return JSON only.`;
 
   const response = await client.messages.create({
     model: config.vertex.model,
     max_tokens: 2048,
     system: visualIntakePrompt,
+    messages: [{ role: 'user', content: userContent }],
+  });
+
+  const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
+  return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '{}';
+}
+
+/**
+ * Aggregate multiple visual requirements into a coherent PRD.
+ */
+export async function aggregateVisualPRD(
+  requirements: Array<Record<string, unknown>>,
+  existingDraft: Record<string, unknown>,
+): Promise<string> {
+  const prdAggregatorPrompt = loadPrompt('visual-prd-aggregator.md');
+
+  const userContent = `## Visual Requirements (${requirements.length} total)
+
+\`\`\`json
+${JSON.stringify(requirements, null, 2)}
+\`\`\`
+
+## Existing Draft Context
+
+\`\`\`json
+${JSON.stringify(existingDraft, null, 2)}
+\`\`\`
+
+Aggregate these visual requirements into a single coherent PRD. Deduplicate overlapping requirements, group by target area, identify cross-cutting concerns, and produce the complete PRD JSON structure. Return JSON only.`;
+
+  const response = await client.messages.create({
+    model: config.vertex.model,
+    max_tokens: 4096,
+    system: prdAggregatorPrompt,
     messages: [{ role: 'user', content: userContent }],
   });
 
