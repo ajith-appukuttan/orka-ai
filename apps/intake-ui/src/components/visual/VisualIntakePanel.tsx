@@ -59,6 +59,7 @@ interface VisualIntakePanelProps {
   onSubmitChange: (instruction: string) => Promise<VisualRequirementItem | null>;
   onClose: () => void;
   onAnalyzeRepo?: (repoUrl: string) => void;
+  onDoneVisual?: () => void;
   requirements?: VisualRequirementItem[];
 }
 
@@ -226,6 +227,7 @@ export function VisualIntakePanel({
   onSubmitChange,
   onClose,
   onAnalyzeRepo,
+  onDoneVisual,
   requirements = [],
 }: VisualIntakePanelProps) {
   const [url, setUrl] = useState('http://localhost:3001');
@@ -424,8 +426,14 @@ export function VisualIntakePanel({
             lower.includes('finish') ||
             lower.includes('stop')
           ) {
-            setPhase('ask_repo');
-            addBotMessage(ASK_REPO_MSG);
+            setPhase('done');
+            addBotMessage(
+              `Great work! Your visual requirements are captured. Switching you to the **Chat** tab to continue refining the PRD and connect your repository.`,
+            );
+            // Auto-switch to chat mode after a brief delay
+            setTimeout(() => {
+              onDoneVisual?.();
+            }, 1500);
           } else {
             addBotMessage(
               `Would you like to **select another element** to change, or are you **done** with visual changes?`,
@@ -440,36 +448,9 @@ export function VisualIntakePanel({
           break;
         }
 
-        case 'ask_repo': {
-          if (lower === 'skip' || lower.includes('later') || lower.includes('no')) {
-            setPhase('done');
-            addBotMessage(SKIP_REPO_MSG);
-          } else if (
-            text.includes('github.com') ||
-            text.includes('gitlab.com') ||
-            text.includes('.git')
-          ) {
-            setPhase('repo_submitted');
-            setThinkingOp('repo_analyzing');
-            setIsThinking(true);
-            onAnalyzeRepo?.(text.trim());
-            // Show completion after a delay (analysis runs async)
-            setTimeout(() => {
-              setIsThinking(false);
-              addBotMessage(REPO_SUBMITTED_MSG);
-            }, 3000);
-          } else {
-            addBotMessage(
-              `That doesn't look like a repository URL. Please paste a GitHub URL (e.g., \`https://github.com/org/repo\`) or say **"skip"**.`,
-            );
-          }
-          break;
-        }
-
-        case 'done':
-        case 'repo_submitted': {
+        case 'done': {
           addBotMessage(
-            `Your visual intake is complete! Switch to the **Chat** tab if you want to keep refining the PRD, or review the requirements in the draft panel.`,
+            `Your visual intake is complete! You can switch to the **Chat** tab to continue refining the PRD.`,
           );
           break;
         }
@@ -487,6 +468,7 @@ export function VisualIntakePanel({
       onToggleInspect,
       onSubmitChange,
       onAnalyzeRepo,
+      onDoneVisual,
     ],
   );
 

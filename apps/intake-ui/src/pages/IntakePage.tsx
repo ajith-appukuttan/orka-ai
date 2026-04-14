@@ -92,6 +92,20 @@ export function IntakePage() {
     [activeWorkspaceId, analyzeRepoMutation],
   );
 
+  // Handle "Done with visual changes" — switch to chat and prompt for repo
+  const handleDoneVisual = useCallback(() => {
+    setIntakeMode('chat');
+    if (activeSessionId) {
+      // Send a system message summarizing visual requirements
+      const reqCount = visual.requirements.length;
+      logMessage(
+        `[Visual Intake Complete] Captured ${reqCount} UI requirement${reqCount !== 1 ? 's' : ''} from visual inspection. You can now continue refining the PRD via chat.\n\nDo you have a **GitHub repository** for this project? Share the URL and I'll analyze the codebase to map your requirements to source files.`,
+        'assistant',
+        activeSessionId,
+      );
+    }
+  }, [activeSessionId, visual.requirements.length, logMessage]);
+
   // When workspace ID becomes available and there's a pending visual URL, start the preview
   useEffect(() => {
     if (pendingVisualUrl && activeWorkspaceId && !visual.session) {
@@ -541,9 +555,6 @@ export function IntakePage() {
                 />
               </Box>
 
-              {/* Resize handle — only in chat mode */}
-              {intakeMode === 'chat' && <ResizeHandle onResize={handleResize} />}
-
               {/* Visual panel — hidden when in chat mode, keeps state alive */}
               <Box
                 flex={intakeMode === 'visual' ? 1 : undefined}
@@ -564,125 +575,115 @@ export function IntakePage() {
                   onSubmitChange={visual.submitChange}
                   onClose={visual.closePreview}
                   onAnalyzeRepo={handleAnalyzeRepo}
+                  onDoneVisual={handleDoneVisual}
                   requirements={visual.requirements}
                 />
               </Box>
 
-              {/* Draft PRD panel — only in Chat mode */}
-              {intakeMode === 'chat' && (
+              {/* Draft PRD panel — visible in both modes */}
+              {intakeMode === 'chat' && <ResizeHandle onResize={handleResize} />}
+              <Box
+                style={{
+                  width: intakeMode === 'chat' ? `${prdWidthPct}%` : '40%',
+                  minWidth: MIN_PANEL_WIDTH,
+                  flexShrink: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                  background: themedColor('prdBg'),
+                }}
+              >
                 <Box
+                  px="md"
+                  py="xs"
                   style={{
-                    width: `${prdWidthPct}%`,
-                    minWidth: MIN_PANEL_WIDTH,
+                    borderBottom: `1px solid ${themedColor('prdBorder')}`,
                     flexShrink: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    background: themedColor('prdBg'),
                   }}
                 >
-                  <Box
-                    px="md"
-                    py="xs"
-                    style={{
-                      borderBottom: `1px solid ${themedColor('prdBorder')}`,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Group justify="space-between" align="center">
-                      <Group gap={6}>
-                        <Box
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background: themedColor('prdGreen'),
-                            boxShadow: `0 0 6px ${themedColor('prdGreen')}`,
-                          }}
-                        />
-                        <Text
-                          size="xs"
-                          fw={700}
-                          ff="monospace"
-                          tt="uppercase"
-                          style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
-                        >
-                          Intake PRD
-                        </Text>
-                      </Group>
+                  <Group justify="space-between" align="center">
+                    <Group gap={6}>
+                      <Box
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: themedColor('prdGreen'),
+                          boxShadow: `0 0 6px ${themedColor('prdGreen')}`,
+                        }}
+                      />
                       <Text
-                        ff="monospace"
                         size="xs"
-                        style={{ color: themedColor('prdTextDimmed') }}
+                        fw={700}
+                        ff="monospace"
+                        tt="uppercase"
+                        style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
                       >
-                        live
+                        Intake PRD
                       </Text>
                     </Group>
-                  </Box>
-
-                  <ScrollArea flex={1} scrollbarSize={6}>
-                    <DraftSidePanel draft={draft} readinessScore={readinessScore} />
-
-                    {/* Memory Items */}
-                    {memoryItems.length > 0 && (
-                      <Box px="md" py="sm">
-                        <Group gap="sm" align="center" mb="sm">
-                          <Text
-                            size="xs"
-                            ff="monospace"
-                            fw={700}
-                            tt="uppercase"
-                            style={{ color: themedColor('prdAccent'), letterSpacing: '0.08em' }}
-                          >
-                            Project Memory
-                          </Text>
-                          <Box
-                            flex={1}
-                            style={{ height: 1, background: themedColor('prdBorder') }}
-                          />
-                          <Text
-                            ff="monospace"
-                            size="xs"
-                            style={{ color: themedColor('prdTextDimmed'), fontSize: 10 }}
-                          >
-                            {memoryItems.length} items
-                          </Text>
-                        </Group>
-                        <MemoryPanel items={memoryItems} onArchive={archiveMemory} />
-                      </Box>
-                    )}
-
-                    {/* Visual Requirements */}
-                    {visual.requirements.length > 0 && (
-                      <Box px="md" py="sm">
-                        <Group gap="sm" align="center" mb="sm">
-                          <Text
-                            size="xs"
-                            ff="monospace"
-                            fw={700}
-                            tt="uppercase"
-                            style={{ color: themedColor('prdAccent'), letterSpacing: '0.08em' }}
-                          >
-                            UI Requirements
-                          </Text>
-                          <Box
-                            flex={1}
-                            style={{ height: 1, background: themedColor('prdBorder') }}
-                          />
-                          <Text
-                            ff="monospace"
-                            size="xs"
-                            style={{ color: themedColor('prdTextDimmed'), fontSize: 10 }}
-                          >
-                            {visual.requirements.length} items
-                          </Text>
-                        </Group>
-                        <VisualRequirementsList requirements={visual.requirements} />
-                      </Box>
-                    )}
-                  </ScrollArea>
+                    <Text ff="monospace" size="xs" style={{ color: themedColor('prdTextDimmed') }}>
+                      live
+                    </Text>
+                  </Group>
                 </Box>
-              )}
+
+                <ScrollArea flex={1} scrollbarSize={6}>
+                  <DraftSidePanel draft={draft} readinessScore={readinessScore} />
+
+                  {/* Memory Items */}
+                  {memoryItems.length > 0 && (
+                    <Box px="md" py="sm">
+                      <Group gap="sm" align="center" mb="sm">
+                        <Text
+                          size="xs"
+                          ff="monospace"
+                          fw={700}
+                          tt="uppercase"
+                          style={{ color: themedColor('prdAccent'), letterSpacing: '0.08em' }}
+                        >
+                          Project Memory
+                        </Text>
+                        <Box flex={1} style={{ height: 1, background: themedColor('prdBorder') }} />
+                        <Text
+                          ff="monospace"
+                          size="xs"
+                          style={{ color: themedColor('prdTextDimmed'), fontSize: 10 }}
+                        >
+                          {memoryItems.length} items
+                        </Text>
+                      </Group>
+                      <MemoryPanel items={memoryItems} onArchive={archiveMemory} />
+                    </Box>
+                  )}
+
+                  {/* Visual Requirements */}
+                  {visual.requirements.length > 0 && (
+                    <Box px="md" py="sm">
+                      <Group gap="sm" align="center" mb="sm">
+                        <Text
+                          size="xs"
+                          ff="monospace"
+                          fw={700}
+                          tt="uppercase"
+                          style={{ color: themedColor('prdAccent'), letterSpacing: '0.08em' }}
+                        >
+                          UI Requirements
+                        </Text>
+                        <Box flex={1} style={{ height: 1, background: themedColor('prdBorder') }} />
+                        <Text
+                          ff="monospace"
+                          size="xs"
+                          style={{ color: themedColor('prdTextDimmed'), fontSize: 10 }}
+                        >
+                          {visual.requirements.length} items
+                        </Text>
+                      </Group>
+                      <VisualRequirementsList requirements={visual.requirements} />
+                    </Box>
+                  )}
+                </ScrollArea>
+              </Box>
             </Group>
           </Stack>
         )}
