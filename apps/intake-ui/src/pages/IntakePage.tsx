@@ -557,8 +557,9 @@ export function IntakePage() {
 
               {/* Visual panel — hidden when in chat mode, keeps state alive */}
               <Box
-                flex={intakeMode === 'visual' ? 1 : undefined}
                 style={{
+                  width: intakeMode === 'visual' ? '60%' : undefined,
+                  minWidth: intakeMode === 'visual' ? MIN_PANEL_WIDTH : undefined,
                   overflow: 'hidden',
                   display: intakeMode === 'visual' ? undefined : 'none',
                 }}
