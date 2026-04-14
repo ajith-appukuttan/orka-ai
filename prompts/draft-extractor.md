@@ -62,15 +62,37 @@ Return a valid JSON object matching this schema:
 
 5. **Name uncertainty.** If the copilot asked a question the user hasn't answered, or the user expressed uncertainty, add it to `openQuestions`. Named uncertainty is the most valuable output.
 
-6. **Compute readinessScore** based on the five core prompts:
-   - Problem Statement (who + what filled): weight 2
+6. **Compute readinessScore** based on the five core prompts and supplementary fields:
+
+   **Core fields (must have for high readiness):**
+   - Problem Statement `who` filled (length > 10): weight 1.5
+   - Problem Statement `what` filled (length > 10): weight 1.5
+   - Problem Statement `context` filled: weight 0.5
+   - Problem Statement `costOfInaction` filled: weight 0.5
    - Goals (at least one): weight 2
    - Non-Goals (at least one): weight 1.5
-   - Open Questions (at least one): weight 1.5
-   - Current State (description filled): weight 1
-   - Plus supplementary: title (0.5), user stories (1), constraints (0.5), trigger (0.5), assumptions (0.5)
-   - Score = filled weight / total weight, rounded to 2 decimals
+   - Open Questions (listed, even if empty = means all resolved): weight 1
+
+   **Supplementary fields:**
+   - Title (non-empty): weight 0.5
+   - Trigger (non-empty): weight 0.5
+   - User stories (at least one): weight 1
+   - Constraints (at least one): weight 0.5
+   - Current State description (non-empty): weight 1
+   - Assumptions (at least one): weight 0.5
+   - UI Requirements (at least one, from visual intake): weight 1
+
+   **Scoring:**
+   - Score = sum of filled weights / total possible weight (12.5)
+   - Round to 2 decimal places
+   - **Update the score every extraction** — even small additions should increment it. If a user provides a one-word answer to trigger ("feedback"), that's still worth the 0.5 weight.
+   - Do NOT keep the score flat across multiple extractions if new information was added.
 
 7. **Set readyForReview** to `true` when `readinessScore >= 0.8`
 
-8. **Return only JSON** — No commentary, no markdown fences, just the JSON object.
+8. **Acceptance criteria quality check** — When computing readiness, penalize if:
+   - Goals exist but none are measurable or testable (reduce score by 0.1)
+   - User stories exist but lack the "so that [outcome]" part (reduce by 0.05 per story)
+   - Open questions contain critical blockers like "what color?" or "which API?" (these indicate the PRD isn't actionable yet — cap readiness at 0.85 max while critical questions remain)
+
+9. **Return only JSON** — No commentary, no markdown fences, just the JSON object.

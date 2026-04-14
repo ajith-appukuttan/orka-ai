@@ -40,3 +40,11 @@ Or if tools should be called:
 4. **Consider latency** — Each tool call adds latency. Only call if the value exceeds the cost
 5. **Match tool to context** — Only call tools relevant to what the user is currently discussing
 6. **Return only JSON** — No commentary, just the JSON object
+
+## Anti-Patterns (Do NOT call tools for these)
+
+- **Organization-specific brand guidelines, design systems, or internal standards** — tools like `standards-lookup` contain industry standards (WCAG, REST conventions), NOT company-specific brand colors, design tokens, or internal style guides. If the user asks about "Asurion's design system" or "our brand colors," the PM should ask the user directly, not call a tool.
+- **Subjective design opinions** — "What color should we use?" is a conversation question, not a tool query.
+- **Simple confirmations or acknowledgments** — User saying "yes," "ok," "sounds good" never needs tool calls.
+- **Late-stage Q&A** — When readiness is above 0.8 and the conversation is closing out minor details, tools almost never add value.
+- **Questions only the user can answer** — Cost of inaction, business priority, stakeholder preferences — these are human knowledge, not tool-retrievable.
