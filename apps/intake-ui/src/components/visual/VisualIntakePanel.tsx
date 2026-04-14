@@ -248,9 +248,41 @@ export function VisualIntakePanel({
         }
 
         case 'inspecting': {
-          addBotMessage(
-            `I'm waiting for you to click an element in the Chrome window. Go ahead and click on what you'd like to change!`,
-          );
+          // If an element was already captured, treat this as a change description
+          if (selectedElement) {
+            setPhase('generating');
+            setIsThinking(true);
+            addBotMessage(GENERATING_MSG);
+            try {
+              const req = await onSubmitChange(text);
+              setIsThinking(false);
+              if (req) {
+                setPhase('requirement_generated');
+                addBotMessage(REQUIREMENT_DONE_MSG(req), {
+                  requirement: req,
+                  actions: [
+                    { label: 'Select another element', action: 'more_changes' },
+                    { label: 'Done with visual changes', action: 'done_visual' },
+                  ],
+                });
+              } else {
+                setPhase('element_captured');
+                addBotMessage(
+                  `Hmm, I had trouble generating that requirement. Could you try describing the change differently?`,
+                );
+              }
+            } catch {
+              setIsThinking(false);
+              setPhase('element_captured');
+              addBotMessage(
+                `Something went wrong generating the requirement. Let's try again — what would you like to change?`,
+              );
+            }
+          } else {
+            addBotMessage(
+              `I'm waiting for you to click an element in the Chrome window. Go ahead and click on what you'd like to change!`,
+            );
+          }
           break;
         }
 
