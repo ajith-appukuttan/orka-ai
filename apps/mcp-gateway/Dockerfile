@@ -19,6 +19,7 @@ RUN pnpm --filter @orka/shared-types build && \
 
 # Production image
 FROM node:22-slim AS runner
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 WORKDIR /app
 
