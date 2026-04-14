@@ -165,9 +165,9 @@ export function useVisualIntake(workspaceId: string | undefined) {
     [enableInspect, disableInspect],
   );
 
-  // Poll for element selection whenever a browser session exists
+  // Poll for element selection only while inspect mode is active
   useEffect(() => {
-    if (!session) {
+    if (!session || !inspectMode) {
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
@@ -205,7 +205,7 @@ export function useVisualIntake(workspaceId: string | undefined) {
         pollRef.current = null;
       }
     };
-  }, [session]);
+  }, [session, inspectMode]);
 
   // Submit change instruction
   const submitChange = useCallback(

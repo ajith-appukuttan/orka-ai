@@ -114,15 +114,17 @@ services:
     environment:
       PORT: '4001'
 
-  preview-browser:
-    build:
-      context: ..
-      dockerfile: apps/preview-browser/Dockerfile.dev
-    ports:
-      - '4002:4002'
-    environment:
-      PORT: '4002'
-      ALLOWED_PREVIEW_HOSTS: 'localhost,127.0.0.1,*.asurion.net,*.aws.asurion.net'
+  # preview-browser runs locally (not in Docker) so Chrome opens visibly on the host.
+  # Start it with: PORT=4002 pnpm --filter @orka/preview-browser dev
+  # preview-browser:
+  #   build:
+  #     context: ..
+  #     dockerfile: apps/preview-browser/Dockerfile.dev
+  #   ports:
+  #     - '4002:4002'
+  #   environment:
+  #     PORT: '4002'
+  #     ALLOWED_PREVIEW_HOSTS: 'localhost,127.0.0.1,*.asurion.net,*.aws.asurion.net'
 
   mock-app:
     image: nginx:alpine
