@@ -113,6 +113,8 @@ services:
       - '4001:4001'
     environment:
       PORT: '4001'
+      GH_TOKEN: ${GH_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
 
   # preview-browser runs locally (not in Docker) so Chrome opens visibly on the host.
   # Start it with: PORT=4002 pnpm --filter @orka/preview-browser dev

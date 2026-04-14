@@ -130,6 +130,27 @@ function findEntryPoints(repoDir: string): string[] {
   return candidates.filter((c) => fs.existsSync(path.join(repoDir, c)));
 }
 
+/**
+ * Inject a GitHub token into an HTTPS clone URL for private repo access.
+ * https://github.com/org/repo.git → https://x-access-token:TOKEN@github.com/org/repo.git
+ */
+function injectToken(url: string): string {
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+  if (!token) return url;
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' && !parsed.username) {
+      parsed.username = 'x-access-token';
+      parsed.password = token;
+      return parsed.toString();
+    }
+  } catch {
+    // Not a valid URL (e.g. SSH), return as-is
+  }
+  return url;
+}
+
 export const repoDiscoveryTool: ToolHandler = {
   tool: {
     id: 'repo-discovery',
@@ -153,6 +174,9 @@ export const repoDiscoveryTool: ToolHandler = {
     // Normalize the URL
     const normalizedUrl = repoUrl.endsWith('.git') ? repoUrl : `${repoUrl}.git`;
 
+    // Inject auth token for private repos
+    const authenticatedUrl = injectToken(normalizedUrl);
+
     // Create a unique clone directory
     const repoName = repoUrl.split('/').slice(-2).join('_').replace('.git', '');
     const cloneDir = path.join(CLONE_BASE, `${repoName}_${Date.now()}`);
@@ -163,7 +187,7 @@ export const repoDiscoveryTool: ToolHandler = {
 
       // Shallow clone (depth=1) for speed
       const git = simpleGit();
-      await git.clone(normalizedUrl, cloneDir, [
+      await git.clone(authenticatedUrl, cloneDir, [
         '--depth',
         '1',
         '--branch',
