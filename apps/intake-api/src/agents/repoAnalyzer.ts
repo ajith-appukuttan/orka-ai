@@ -184,8 +184,9 @@ export async function runRepoAnalyzer(
 }
 
 /**
- * Map visual requirements to code targets using the repo analysis.
- * Searches the cloned repo for component names matching the requirement's target area.
+ * Map visual requirements to code targets using GitHub Search API.
+ * No cloning needed — searches the repo for selectors, class names,
+ * component names, and text content from visual requirements.
  */
 export async function mapRequirementsToCode(
   workspaceId: string,
@@ -196,33 +197,25 @@ export async function mapRequirementsToCode(
     codeTargets: Array<{ filePath: string; symbolName: string; confidence: number }>;
   }>
 > {
-  // Load the repo analysis
-  const analysisResult = await query<{
-    key_components: Array<{
-      filePath: string;
-      symbolName: string;
-      type: string;
-      description: string;
-    }>;
-    repo_url: string;
-  }>(
-    `SELECT key_components, repo_url FROM repository_analyses
-     WHERE intake_workspace_id = $1 AND analysis_status = 'READY'
-     ORDER BY analyzed_at DESC LIMIT 1`,
+  // Load workspace repo URL
+  const wsResult = await query<{ repo_url: string; tenant_id: string }>(
+    `SELECT repo_url, tenant_id FROM intake_workspaces WHERE id = $1`,
     [workspaceId],
   );
 
-  if (analysisResult.rows.length === 0) {
+  if (wsResult.rows.length === 0 || !wsResult.rows[0].repo_url) {
+    console.warn('mapRequirementsToCode: no repo URL configured');
     return [];
   }
 
-  const components = analysisResult.rows[0].key_components;
+  const repoUrl = wsResult.rows[0].repo_url;
+  const tenantId = wsResult.rows[0].tenant_id;
 
-  // Load visual requirements
-  let reqFilter = "AND status != 'ARCHIVED'";
+  // Load visual requirements with their selection data
+  let reqFilter = "AND vr.status != 'ARCHIVED'";
   const params: unknown[] = [workspaceId];
   if (requirementIds && requirementIds.length > 0) {
-    reqFilter = 'AND id = ANY($2)';
+    reqFilter = 'AND vr.id = ANY($2)';
     params.push(requirementIds);
   }
 
@@ -231,10 +224,14 @@ export async function mapRequirementsToCode(
     target_area: string;
     requested_change: string;
     title: string;
+    selector: string | null;
+    text_content: string | null;
   }>(
-    `SELECT id, target_area, requested_change, title
-     FROM visual_requirements
-     WHERE intake_workspace_id = $1 ${reqFilter}`,
+    `SELECT vr.id, vr.target_area, vr.requested_change, vr.title,
+            vs.selector, vs.text_content
+     FROM visual_requirements vr
+     LEFT JOIN visual_selections vs ON vs.id = vr.selection_id
+     WHERE vr.intake_workspace_id = $1 ${reqFilter}`,
     params,
   );
 
@@ -244,68 +241,63 @@ export async function mapRequirementsToCode(
   }> = [];
 
   for (const req of reqsResult.rows) {
-    const searchTerms = [req.target_area, req.title, req.requested_change].join(' ').toLowerCase();
+    try {
+      console.info(`Searching code targets for "${req.title}"...`);
 
-    const matches = components
-      .map((comp) => {
-        let confidence = 0;
-
-        // Match by symbol name
-        if (searchTerms.includes(comp.symbolName.toLowerCase())) {
-          confidence += 0.5;
-        }
-
-        // Match by file path segments
-        const pathSegments = comp.filePath.toLowerCase().split('/');
-        for (const seg of pathSegments) {
-          if (seg.length > 2 && searchTerms.includes(seg.replace(/\.(tsx?|jsx?)$/, ''))) {
-            confidence += 0.3;
-          }
-        }
-
-        // Match by type (UI components are more relevant for visual requirements)
-        if (['COMPONENT', 'PAGE'].includes(comp.type)) {
-          confidence += 0.1;
-        }
-
-        // Match by description
-        if (
-          comp.description &&
-          searchTerms
-            .split(/\s+/)
-            .some((term) => term.length > 3 && comp.description.toLowerCase().includes(term))
-        ) {
-          confidence += 0.2;
-        }
-
-        return {
-          filePath: comp.filePath,
-          symbolName: comp.symbolName,
-          confidence: Math.min(confidence, 1),
-        };
-      })
-      .filter((m) => m.confidence >= 0.3)
-      .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, 5);
-
-    // Persist code targets to DB
-    for (const match of matches) {
-      await query(
-        `INSERT INTO visual_requirement_code_targets
-         (visual_requirement_id, file_path, symbol_name, match_reason, confidence)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT DO NOTHING`,
-        [
-          req.id,
-          match.filePath,
-          match.symbolName,
-          'auto-mapped from repo analysis',
-          match.confidence,
-        ],
+      const searchResult = await invokeTool(
+        'github-search',
+        {
+          repoUrl,
+          element: {
+            selector: req.selector || '',
+            textContent: req.text_content || '',
+            targetArea: req.target_area || '',
+          },
+        },
+        workspaceId,
+        tenantId,
       );
-    }
 
-    results.push({ requirementId: req.id, codeTargets: matches });
+      const codeTargets: Array<{ filePath: string; symbolName: string; confidence: number }> = [];
+
+      if (searchResult.status === 'success' && searchResult.output.matches) {
+        const matches = searchResult.output.matches as Array<{
+          filePath: string;
+          query: string;
+          fragment?: string;
+        }>;
+
+        for (let i = 0; i < matches.length; i++) {
+          const match = matches[i];
+          const confidence = i < 3 ? Math.max(0.9 - i * 0.1, 0.5) : Math.max(0.6 - i * 0.05, 0.3);
+          const fileName = match.filePath.split('/').pop() || '';
+          const symbolName = fileName.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
+
+          codeTargets.push({ filePath: match.filePath, symbolName, confidence });
+
+          await query(
+            `INSERT INTO visual_requirement_code_targets
+             (visual_requirement_id, file_path, symbol_name, match_reason, confidence)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT DO NOTHING`,
+            [
+              req.id,
+              match.filePath,
+              symbolName,
+              `GitHub search: "${match.query}"${match.fragment ? ` — ${match.fragment.substring(0, 80)}` : ''}`,
+              confidence,
+            ],
+          );
+        }
+
+        console.info(`Code targets for "${req.title}": ${codeTargets.length} files found`);
+      }
+
+      results.push({ requirementId: req.id, codeTargets });
+    } catch (err) {
+      console.error(`Code target mapping failed for "${req.title}":`, err);
+      results.push({ requirementId: req.id, codeTargets: [] });
+    }
   }
 
   return results;

@@ -8,7 +8,6 @@ import {
   Text,
   Paper,
   ScrollArea,
-  Loader,
   Badge,
   ActionIcon,
   Tooltip,
@@ -113,6 +112,81 @@ const SKIP_REPO_MSG = `No problem! You can always connect a repository later fro
 
 Your visual requirements are captured and ready. Switch to the **Chat** tab to continue refining the PRD, or review the generated requirements in the draft panel.`;
 
+// ─── Animated Thinking ─────────────────────────────────
+const THINKING_STEPS: Record<string, string[]> = {
+  generating: [
+    'Analyzing the selected element...',
+    'Understanding your change request...',
+    'Crafting acceptance criteria...',
+    'Generating structured requirement...',
+  ],
+  repo_analyzing: [
+    'Connecting to GitHub...',
+    'Detecting default branch...',
+    'Cloning repository (shallow)...',
+    'Scanning file tree and manifests...',
+    'Analyzing architecture with Claude...',
+    'Extracting key components...',
+    'Mapping requirements to source files...',
+  ],
+  launching: ['Starting Chrome...', 'Loading your application...'],
+};
+
+function ThinkingAnimation({ operation }: { operation: string }) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const steps = THINKING_STEPS[operation] || ['Working on it...'];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStepIndex((prev) => (prev + 1) % steps.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [steps.length]);
+
+  return (
+    <Box>
+      <Group gap="xs" align="center">
+        <Box
+          style={{
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            border: '2px solid transparent',
+            borderTopColor: '#10a37f',
+            animation: 'orka-spin 0.8s linear infinite',
+          }}
+        />
+        <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
+          {steps[stepIndex]}
+        </Text>
+      </Group>
+
+      {/* Progress dots */}
+      <Group gap={4} mt={6} ml={26}>
+        {steps.map((_, i) => (
+          <Box
+            key={i}
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: i <= stepIndex ? '#10a37f' : 'var(--mantine-color-gray-4)',
+              transition: 'background 300ms ease',
+            }}
+          />
+        ))}
+      </Group>
+
+      {/* Inject keyframes */}
+      <style>{`
+        @keyframes orka-spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </Box>
+  );
+}
+
 // ─── Avatar ────────────────────────────────────────────
 function Avatar({ role }: { role: string }) {
   const bg = role === 'user' ? '#5436DA' : 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)';
@@ -160,6 +234,7 @@ export function VisualIntakePanel({
   ]);
   const [phase, setPhase] = useState<ConversationPhase>('idle');
   const [isThinking, setIsThinking] = useState(false);
+  const [thinkingOp, setThinkingOp] = useState<string>('generating');
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevElementRef = useRef<string | null>(null);
   const { themedColor, contentMaxWidth } = useTheme();
@@ -189,6 +264,7 @@ export function VisualIntakePanel({
   // Phase: browser launched
   useEffect(() => {
     if (session && phase === 'launching') {
+      setIsThinking(false);
       setPhase('browsing');
       addBotMessage(BROWSER_LAUNCHED_MSG, {
         actions: [{ label: 'Ready to inspect', action: 'start_inspect' }],
@@ -223,6 +299,8 @@ export function VisualIntakePanel({
           // User provided a URL
           const urlInput = text.startsWith('http') ? text : url;
           setPhase('launching');
+          setThinkingOp('launching');
+          setIsThinking(true);
           onStartPreview(urlInput);
           break;
         }
@@ -251,6 +329,7 @@ export function VisualIntakePanel({
           // If an element was already captured, treat this as a change description
           if (selectedElement) {
             setPhase('generating');
+            setThinkingOp('generating');
             setIsThinking(true);
             addBotMessage(GENERATING_MSG);
             try {
@@ -292,6 +371,7 @@ export function VisualIntakePanel({
         case 'discussing_change': {
           // User describes the change they want
           setPhase('generating');
+          setThinkingOp('generating');
           setIsThinking(true);
           addBotMessage(GENERATING_MSG);
 
@@ -370,8 +450,14 @@ export function VisualIntakePanel({
             text.includes('.git')
           ) {
             setPhase('repo_submitted');
-            addBotMessage(REPO_SUBMITTED_MSG);
+            setThinkingOp('repo_analyzing');
+            setIsThinking(true);
             onAnalyzeRepo?.(text.trim());
+            // Show completion after a delay (analysis runs async)
+            setTimeout(() => {
+              setIsThinking(false);
+              addBotMessage(REPO_SUBMITTED_MSG);
+            }, 3000);
           } else {
             addBotMessage(
               `That doesn't look like a repository URL. Please paste a GitHub URL (e.g., \`https://github.com/org/repo\`) or say **"skip"**.`,
@@ -584,7 +670,7 @@ export function VisualIntakePanel({
               </Box>
             ))}
 
-            {/* Thinking indicator */}
+            {/* Animated thinking indicator */}
             {(isThinking || isSubmitting) && (
               <Box py="md" px="md">
                 <Group
@@ -596,9 +682,9 @@ export function VisualIntakePanel({
                   w="100%"
                 >
                   <Avatar role="assistant" />
-                  <Group gap="xs" pt={2}>
-                    <Loader size="xs" type="dots" />
-                  </Group>
+                  <Box pt={2}>
+                    <ThinkingAnimation operation={thinkingOp} />
+                  </Box>
                 </Group>
               </Box>
             )}

@@ -14,6 +14,7 @@ import { integrationDiscoveryTool } from './tools/integrationDiscovery.js';
 import { repoDiscoveryTool } from './tools/repoDiscovery.js';
 import { codeSearchTool } from './tools/codeSearch.js';
 import { fileReaderTool } from './tools/fileReader.js';
+import { githubSearchTool } from './tools/githubSearch.js';
 
 registry.register(templateDiscoveryTool);
 registry.register(standardsLookupTool);
@@ -21,6 +22,7 @@ registry.register(integrationDiscoveryTool);
 registry.register(repoDiscoveryTool);
 registry.register(codeSearchTool);
 registry.register(fileReaderTool);
+registry.register(githubSearchTool);
 
 const app = express();
 app.use(cors());
