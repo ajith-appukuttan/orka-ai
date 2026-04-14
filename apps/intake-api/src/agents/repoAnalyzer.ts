@@ -28,7 +28,7 @@ export interface RepoAnalysisResult {
 export async function runRepoAnalyzer(
   workspaceId: string,
   repoUrl: string,
-  branch: string = 'main',
+  branch?: string,
   sessionId?: string,
 ): Promise<RepoAnalysisResult | null> {
   const tenantResult = await query<{ tenant_id: string }>(
@@ -56,9 +56,12 @@ export async function runRepoAnalyzer(
   try {
     // 1. Clone and extract via MCP tool
     console.info(`Repo analysis: cloning ${repoUrl}...`);
+    const toolInput: Record<string, unknown> = { repoUrl };
+    if (branch) toolInput.branch = branch;
+
     const discoveryResult = await invokeTool(
       'repo-discovery',
-      { repoUrl, branch },
+      toolInput,
       sessionId || workspaceId,
       tenantId,
     );
