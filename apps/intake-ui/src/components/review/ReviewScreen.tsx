@@ -5,7 +5,7 @@ import { ApprovalButton } from './ApprovalButton';
 
 interface ReviewScreenProps {
   draft: IntakeDraft;
-  onApprove: () => void;
+  onApprove?: () => void;
   isApproving: boolean;
 }
 
