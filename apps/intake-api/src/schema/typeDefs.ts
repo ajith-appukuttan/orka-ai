@@ -370,6 +370,17 @@ export const typeDefs = `#graphql
       y: Float!
     ): VisualSelection!
 
+    saveVisualSelection(
+      sessionId: ID!
+      selector: String!
+      domPath: String
+      textContent: String
+      boundingBox: JSON!
+      ariaRole: String
+      screenshotRef: String
+      pageUrl: String!
+    ): VisualSelection!
+
     submitVisualChange(
       sessionId: ID!
       selectionId: ID!

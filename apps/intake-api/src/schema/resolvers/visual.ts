@@ -159,6 +159,51 @@ export const visualResolvers = {
       };
     },
 
+    // Save a visual selection captured from polling (so submitVisualChange can find it)
+    saveVisualSelection: async (
+      _: unknown,
+      {
+        sessionId,
+        selector,
+        domPath,
+        textContent,
+        boundingBox,
+        ariaRole,
+        screenshotRef,
+        pageUrl,
+      }: {
+        sessionId: string;
+        selector: string;
+        domPath?: string;
+        textContent?: string;
+        boundingBox: Record<string, number>;
+        ariaRole?: string;
+        screenshotRef?: string;
+        pageUrl: string;
+      },
+    ) => {
+      const result = await query(
+        `INSERT INTO visual_selections
+         (session_id, selector, dom_path, text_content, bounding_box, aria_role, screenshot_ref, page_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id, session_id as "sessionId", selector, dom_path as "domPath",
+                   text_content as "textContent", bounding_box as "boundingBox",
+                   aria_role as "ariaRole", screenshot_ref as "screenshotRef",
+                   page_url as "pageUrl", created_at as "createdAt"`,
+        [
+          sessionId,
+          selector,
+          domPath || null,
+          textContent || null,
+          JSON.stringify(boundingBox),
+          ariaRole || null,
+          screenshotRef || null,
+          pageUrl,
+        ],
+      );
+      return result.rows[0];
+    },
+
     submitVisualChange: async (
       _: unknown,
       {
