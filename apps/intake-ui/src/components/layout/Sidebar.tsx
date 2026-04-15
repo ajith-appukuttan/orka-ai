@@ -126,7 +126,7 @@ export function Sidebar({
                 width: 22,
                 height: 22,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)',
+                background: `linear-gradient(135deg, ${themedColor('accentGreenGradientFrom')} 0%, ${themedColor('accentGreenGradientTo')} 100%)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -250,7 +250,9 @@ export function Sidebar({
                   key={ws.id}
                   style={{
                     position: 'relative',
-                    borderLeft: isActiveWs ? '3px solid #10a37f' : '3px solid transparent',
+                    borderLeft: isActiveWs
+                      ? `3px solid ${themedColor('accentGreen')}`
+                      : '3px solid transparent',
                     background: isActiveWs ? themedColor('sidebarActiveBg') : 'transparent',
                     transition: 'all 150ms ease',
                   }}

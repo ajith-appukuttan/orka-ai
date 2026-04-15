@@ -1,4 +1,5 @@
 import { Box, Button, Group, Progress, Text } from '@mantine/core';
+import { useTheme } from '../../hooks/useTheme';
 
 interface ReadinessIndicatorProps {
   score: number;
@@ -13,6 +14,8 @@ export function ReadinessIndicator({
   onReview,
   hasVisualRequirements = false,
 }: ReadinessIndicatorProps) {
+  const { themedColor } = useTheme();
+
   // Ready for review (score >= 0.8)
   if (readyForReview) {
     return (
@@ -24,7 +27,7 @@ export function ReadinessIndicator({
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
-                background: '#10a37f',
+                background: themedColor('accentGreen'),
               }}
             />
             <Text size="sm" fw={500}>
@@ -52,7 +55,7 @@ export function ReadinessIndicator({
               radius={0}
               style={{ opacity: 0.6, flex: 1 }}
             />
-            <Text size="xs" c="dimmed" ff="monospace">
+            <Text size="xs" ff="monospace" style={{ color: themedColor('textDimmed') }}>
               {Math.round(score * 100)}%
             </Text>
           </Group>

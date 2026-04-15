@@ -56,27 +56,11 @@ function extractOptions(content: string): string[] {
 }
 
 function Avatar({ role }: { role: string }) {
-  if (role === 'user') {
-    return (
-      <Box
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: '50%',
-          background: '#5436DA',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          fontSize: 12,
-          fontWeight: 600,
-          flexShrink: 0,
-        }}
-      >
-        U
-      </Box>
-    );
-  }
+  const { themedColor: tc } = useTheme();
+  const bg =
+    role === 'user'
+      ? tc('accentPurple')
+      : `linear-gradient(135deg, ${tc('accentGreenGradientFrom')} 0%, ${tc('accentGreenGradientTo')} 100%)`;
 
   return (
     <Box
@@ -84,17 +68,17 @@ function Avatar({ role }: { role: string }) {
         width: 28,
         height: 28,
         borderRadius: '50%',
-        background: 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)',
+        background: bg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: 'white',
+        color: tc('avatarText'),
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: role === 'user' ? 600 : 700,
         flexShrink: 0,
       }}
     >
-      V
+      {role === 'user' ? 'U' : 'V'}
     </Box>
   );
 }

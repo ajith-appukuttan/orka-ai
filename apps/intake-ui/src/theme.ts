@@ -44,6 +44,19 @@ export const theme = createTheme({
     prdProgressBg: { light: '#313244', dark: '#21262d' },
     prdProgressFill: { light: '#89b4fa', dark: '#58a6ff' },
     prdProgressFillReady: { light: '#a6e3a1', dark: '#3fb950' },
+    // Shared accent colors (theme-aware)
+    accentGreen: { light: '#10a37f', dark: '#3fb950' },
+    accentGreenGlow: { light: '#10a37f', dark: '#3fb950' },
+    accentGreenGradientFrom: { light: '#10a37f', dark: '#3fb950' },
+    accentGreenGradientTo: { light: '#1a7f64', dark: '#2ea043' },
+    accentPurple: { light: '#5436DA', dark: '#8b5cf6' },
+    avatarText: { light: '#ffffff', dark: '#ffffff' },
+    // Borders for cards/screenshots
+    cardBorder: { light: '#313244', dark: '#21262d' },
+    // Dimmed text (replaces c="dimmed" which doesn't work well on dark bg)
+    textDimmed: { light: '#6c7086', dark: '#484f58' },
+    // Warning text
+    warningText: { light: '#f9e2af', dark: '#d29922' },
   },
 });
 

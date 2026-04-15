@@ -472,7 +472,7 @@ export function IntakePage() {
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      background: '#10a37f',
+                      background: themedColor('accentGreen'),
                       flexShrink: 0,
                     }}
                   />
@@ -483,8 +483,11 @@ export function IntakePage() {
                     <Text
                       size="xs"
                       ff="monospace"
-                      c="dimmed"
-                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                      style={{
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        color: themedColor('textDimmed'),
+                      }}
                       onClick={() => {
                         if (activeSessionId) {
                           navigator.clipboard.writeText(activeSessionId);
