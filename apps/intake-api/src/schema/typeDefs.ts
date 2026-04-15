@@ -15,6 +15,7 @@ export const typeDefs = `#graphql
     repoDefaultBranch: String
     repoStatus: String
     createdBy: String!
+    statusChangedAt: DateTime!
     createdAt: DateTime!
     updatedAt: DateTime!
     # Resolved fields

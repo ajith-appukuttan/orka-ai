@@ -16,6 +16,7 @@ interface Workspace {
   title: string;
   status: string;
   readinessScore: number | null;
+  statusChangedAt: string;
   createdAt: string;
   updatedAt: string;
   sessions: WorkspaceSession[];

@@ -33,6 +33,7 @@ interface SidebarWorkspace {
   title: string;
   status: string;
   readinessScore: number | null;
+  statusChangedAt: string;
   updatedAt: string;
   sessions: SidebarSession[];
   latestClassification?: SidebarClassification | null;
@@ -280,11 +281,18 @@ export function Sidebar({
                           {ws.title}
                         </Text>
                         {(() => {
+                          const buildingMinutes =
+                            ws.status === 'BUILDING' && ws.statusChangedAt
+                              ? (Date.now() - new Date(ws.statusChangedAt).getTime()) / 60_000
+                              : 0;
+                          const isBuildStuck = ws.status === 'BUILDING' && buildingMinutes > 5;
                           const statusBadge: Record<string, { label: string; color: string }> = {
                             CLASSIFYING: { label: 'Classifying', color: 'yellow' },
                             ELABORATING: { label: 'Elaborating', color: 'yellow' },
                             PLANNING: { label: 'Planning', color: 'blue' },
-                            BUILDING: { label: 'Building', color: 'teal' },
+                            BUILDING: isBuildStuck
+                              ? { label: 'Stuck?', color: 'red' }
+                              : { label: 'Building', color: 'teal' },
                             BUILT: { label: 'PR Ready', color: 'teal' },
                             FAILED: { label: 'Failed', color: 'red' },
                           };

@@ -601,6 +601,7 @@ export function IntakePage() {
                   workspaceStatus={workspaceStatus}
                   classification={activeClassification?.classification}
                   runId={activeClassification?.runId}
+                  statusChangedAt={(activeWorkspace as any)?.statusChangedAt}
                 />
               </Box>
 

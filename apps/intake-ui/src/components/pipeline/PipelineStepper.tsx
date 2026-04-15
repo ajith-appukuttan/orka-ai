@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Group, Box, Text } from '@mantine/core';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -10,6 +11,24 @@ interface PipelineStep {
 interface PipelineStepperProps {
   workspaceStatus: string;
   classification?: string | null;
+  statusChangedAt?: string;
+}
+
+/** Threshold in minutes before a build is flagged as potentially stuck. */
+const STUCK_THRESHOLD_MINUTES = 5;
+
+/**
+ * Format elapsed time in a compact human-readable form.
+ */
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  if (minutes < 60) return `${minutes}m ${seconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainMin = minutes % 60;
+  return `${hours}h ${remainMin}m`;
 }
 
 /**
@@ -81,12 +100,37 @@ function computeSteps(workspaceStatus: string, classification?: string | null): 
   return steps;
 }
 
-export function PipelineStepper({ workspaceStatus, classification }: PipelineStepperProps) {
+export function PipelineStepper({
+  workspaceStatus,
+  classification,
+  statusChangedAt,
+}: PipelineStepperProps) {
   const { themedColor } = useTheme();
   const steps = computeSteps(workspaceStatus, classification);
 
   // Don't show stepper until intake is at least done
   if (workspaceStatus === 'ACTIVE') return null;
+
+  // ─── Elapsed time tracker for BUILDING status ──────────
+  const isBuilding = workspaceStatus === 'BUILDING';
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    if (!isBuilding || !statusChangedAt) {
+      setElapsedMs(0);
+      return;
+    }
+
+    const startTime = new Date(statusChangedAt).getTime();
+
+    const update = () => setElapsedMs(Date.now() - startTime);
+    update(); // immediate
+
+    const timer = setInterval(update, 30_000); // update every 30s
+    return () => clearInterval(timer);
+  }, [isBuilding, statusChangedAt]);
+
+  const isStuck = isBuilding && elapsedMs > STUCK_THRESHOLD_MINUTES * 60 * 1000;
 
   const statusColor = (status: PipelineStep['status']): string => {
     switch (status) {
@@ -113,10 +157,19 @@ export function PipelineStepper({ workspaceStatus, classification }: PipelineSte
               width: step.status === 'current' ? 10 : 8,
               height: step.status === 'current' ? 10 : 8,
               borderRadius: '50%',
-              background: statusColor(step.status),
-              boxShadow: step.status === 'current' ? `0 0 6px ${statusColor(step.status)}` : 'none',
+              background: step.id === 'build' && isStuck ? '#f85149' : statusColor(step.status),
+              boxShadow:
+                step.id === 'build' && isStuck
+                  ? '0 0 6px #f85149'
+                  : step.status === 'current'
+                    ? `0 0 6px ${statusColor(step.status)}`
+                    : 'none',
               flexShrink: 0,
               transition: 'all 300ms ease',
+              animation:
+                step.id === 'build' && isBuilding && !isStuck
+                  ? 'pulse 2s ease-in-out infinite'
+                  : 'none',
             }}
           />
           {/* Label */}
@@ -126,7 +179,7 @@ export function PipelineStepper({ workspaceStatus, classification }: PipelineSte
             fw={step.status === 'current' ? 700 : 400}
             ml={4}
             style={{
-              color: statusColor(step.status),
+              color: step.id === 'build' && isStuck ? '#f85149' : statusColor(step.status),
               fontSize: 10,
               letterSpacing: '0.05em',
               textDecoration: step.status === 'skipped' ? 'line-through' : 'none',
@@ -134,6 +187,22 @@ export function PipelineStepper({ workspaceStatus, classification }: PipelineSte
           >
             {step.label}
           </Text>
+          {/* Elapsed / stuck indicator — only on the build step */}
+          {step.id === 'build' && isBuilding && elapsedMs > 0 && (
+            <Text
+              size="xs"
+              ff="monospace"
+              fw={600}
+              ml={4}
+              style={{
+                color: isStuck ? '#f85149' : themedColor('textDimmed'),
+                fontSize: 9,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isStuck ? `stuck? ${formatElapsed(elapsedMs)}` : formatElapsed(elapsedMs)}
+            </Text>
+          )}
           {/* Connector line */}
           {i < steps.length - 1 && (
             <Box

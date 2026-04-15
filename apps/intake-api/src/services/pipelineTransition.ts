@@ -35,10 +35,10 @@ export async function transitionWorkspace(
   }
 
   // Apply transition
-  await query('UPDATE intake_workspaces SET status = $1, updated_at = NOW() WHERE id = $2', [
-    toStatus,
-    workspaceId,
-  ]);
+  await query(
+    'UPDATE intake_workspaces SET status = $1, status_changed_at = NOW(), updated_at = NOW() WHERE id = $2',
+    [toStatus, workspaceId],
+  );
 
   // Record in audit trail
   await query(

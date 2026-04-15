@@ -22,6 +22,7 @@ interface ChatPanelProps {
   workspaceStatus?: string;
   classification?: string | null;
   runId?: string | null;
+  statusChangedAt?: string;
 }
 
 export function ChatPanel({
@@ -34,6 +35,7 @@ export function ChatPanel({
   workspaceStatus,
   classification,
   runId,
+  statusChangedAt,
 }: ChatPanelProps) {
   const { themedColor, contentMaxWidth } = useTheme();
 
@@ -151,7 +153,11 @@ export function ChatPanel({
       {workspaceStatus && (
         <Box style={{ borderBottom: `1px solid ${themedColor('prdBorder')}`, flexShrink: 0 }}>
           <Box maw={contentMaxWidth} mx="auto" w="100%">
-            <PipelineStepper workspaceStatus={workspaceStatus} classification={classification} />
+            <PipelineStepper
+              workspaceStatus={workspaceStatus}
+              classification={classification}
+              statusChangedAt={statusChangedAt}
+            />
           </Box>
         </Box>
       )}
