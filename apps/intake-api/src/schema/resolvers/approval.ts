@@ -5,6 +5,7 @@ import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/
 import { runIntakeReadinessClassifier } from '../../agents/intakeReadinessClassifier.js';
 import { executeBuild } from '../../agents/builder/orchestrator.js';
 import { pubsub, EVENTS } from '../../pubsub/index.js';
+import { transitionWorkspace } from '../../services/pipelineTransition.js';
 
 const storageClient = createStorageClient();
 
@@ -181,6 +182,11 @@ export const approvalResolvers = {
         const classifierTenantId = session.tenant_id || 'default';
         const classifierWorkspaceId = session.workspace_id;
         if (classifierWorkspaceId) {
+          // Transition: APPROVED → CLASSIFYING
+          transitionWorkspace(classifierWorkspaceId, 'CLASSIFYING', 'approval', runId).catch(
+            () => {},
+          );
+
           runIntakeReadinessClassifier(
             runId,
             artifactRow.id,
@@ -240,6 +246,19 @@ export const approvalResolvers = {
                 });
               }
 
+              // Route based on classification
+              const routeMap: Record<string, string> = {
+                DIRECT_TO_BUILD: 'BUILDING',
+                NEEDS_ELABORATION: 'ELABORATING',
+                NEEDS_PLANNING: 'PLANNING',
+                NEEDS_ELABORATION_AND_PLANNING: 'ELABORATING',
+                RETURN_TO_INTAKE: 'ACTIVE',
+              };
+              const nextStatus = routeMap[decision.classification] || 'APPROVED';
+              await transitionWorkspace(classifierWorkspaceId, nextStatus, 'classifier', runId, {
+                classification: decision.classification,
+              });
+
               // Auto-trigger build if DIRECT_TO_BUILD
               if (decision.classification === 'DIRECT_TO_BUILD') {
                 const wsResult = await query(
@@ -275,6 +294,9 @@ export const approvalResolvers = {
                     sessionId,
                   ).catch((buildErr) => {
                     console.error('[Builder] Auto-triggered build failed:', buildErr);
+                    transitionWorkspace(classifierWorkspaceId, 'FAILED', 'builder', runId, {
+                      error: String(buildErr),
+                    }).catch(() => {});
                   });
                 }
               }

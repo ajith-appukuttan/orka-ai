@@ -76,6 +76,15 @@ export function IntakePage() {
   const visual = useVisualIntake(activeWorkspaceId);
   const extension = useExtensionBridge();
 
+  // Derive active workspace status and classification for pipeline stepper
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
+  const workspaceStatus = activeWorkspace?.status;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeClassification = (activeWorkspace as any)?.latestClassification as
+    | { classification: string }
+    | null
+    | undefined;
+
   // Analyze repo from visual intake
   const handleAnalyzeRepo = useCallback(
     async (repoUrl: string) => {
@@ -564,6 +573,8 @@ export function IntakePage() {
                   isStreaming={isStreaming}
                   streamingContent={streamingContent}
                   readinessScore={readinessScore}
+                  workspaceStatus={workspaceStatus}
+                  classification={activeClassification?.classification}
                 />
               </Box>
 

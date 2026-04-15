@@ -1,6 +1,7 @@
 import { Stack, Box, Paper, Text, Group } from '@mantine/core';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
+import { PipelineStepper } from '../pipeline/PipelineStepper';
 import { useTheme } from '../../hooks/useTheme';
 
 interface Message {
@@ -17,6 +18,8 @@ interface ChatPanelProps {
   isStreaming: boolean;
   streamingContent: string | null;
   readinessScore?: number;
+  workspaceStatus?: string;
+  classification?: string | null;
 }
 
 export function ChatPanel({
@@ -26,6 +29,8 @@ export function ChatPanel({
   isStreaming,
   streamingContent,
   readinessScore = 0,
+  workspaceStatus,
+  classification,
 }: ChatPanelProps) {
   const { themedColor, contentMaxWidth } = useTheme();
 
@@ -96,6 +101,15 @@ export function ChatPanel({
               {pct}%
             </Text>
           </Group>
+        </Box>
+      )}
+
+      {/* Pipeline stepper */}
+      {workspaceStatus && (
+        <Box style={{ borderBottom: `1px solid ${themedColor('prdBorder')}`, flexShrink: 0 }}>
+          <Box maw={contentMaxWidth} mx="auto" w="100%">
+            <PipelineStepper workspaceStatus={workspaceStatus} classification={classification} />
+          </Box>
         </Box>
       )}
 

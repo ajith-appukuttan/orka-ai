@@ -20,6 +20,7 @@ import { reviewChanges } from './reviewer.js';
 import { generateTests } from './testGenerator.js';
 import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/object-storage';
 import { pubsub, EVENTS } from '../../pubsub/index.js';
+import { transitionWorkspace } from '../../services/pipelineTransition.js';
 
 const storageClient = createStorageClient();
 
@@ -397,6 +398,15 @@ export async function executeBuild(
 
     console.info(`[Builder] Build complete: ${summary}`);
 
+    // Transition workspace: BUILDING → BUILT or FAILED
+    await transitionWorkspace(
+      workspaceId,
+      status === 'FAILED' ? 'FAILED' : 'BUILT',
+      'builder',
+      runId,
+      { completedTasks: completedCount, failedTasks: failedCount, prUrl },
+    );
+
     return {
       id: buildRunId,
       runId,
@@ -417,6 +427,8 @@ export async function executeBuild(
        WHERE id = $2`,
       [`Build failed: ${errMsg}`, buildRunId],
     );
+
+    await transitionWorkspace(workspaceId, 'FAILED', 'builder', runId, { error: errMsg });
 
     return null;
   }

@@ -23,6 +23,36 @@ export async function runChatTurnPipeline(sessionId: string): Promise<void> {
   const ctx = await assembleContext(sessionId);
   const contextPrompt = formatContextForPrompt(ctx);
 
+  // Determine persona based on workspace status
+  let persona: 'intake' | 'elaboration' = 'intake';
+  if (ctx.workspaceId) {
+    const wsResult = await query<{ status: string }>(
+      'SELECT status FROM intake_workspaces WHERE id = $1',
+      [ctx.workspaceId],
+    );
+    if (wsResult.rows[0]?.status === 'ELABORATING') {
+      persona = 'elaboration';
+
+      // Load blocking questions from the latest classification
+      const classResult = await query<{ blocking_questions: string[] }>(
+        `SELECT blocking_questions FROM intake_run_decisions
+         WHERE intake_workspace_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [ctx.workspaceId],
+      );
+      const blockingQuestions = classResult.rows[0]?.blocking_questions || [];
+      if (blockingQuestions.length > 0) {
+        const agenda = blockingQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n');
+        ctx.recentMessages = [
+          {
+            role: 'user' as const,
+            content: `[System: Elaboration agenda - blocking questions to resolve]\n\n${agenda}`,
+          },
+          ...ctx.recentMessages,
+        ];
+      }
+    }
+  }
+
   // 2. Run Tool Planner
   let toolContext = '';
   try {
@@ -55,7 +85,7 @@ export async function runChatTurnPipeline(sessionId: string): Promise<void> {
 
   // 4. Stream Claude response
   let fullResponseText = '';
-  const generator = streamCopilotResponse(ctx.recentMessages, additionalContext);
+  const generator = streamCopilotResponse(ctx.recentMessages, additionalContext, persona);
 
   let streamResult = await generator.next();
   while (!streamResult.done) {

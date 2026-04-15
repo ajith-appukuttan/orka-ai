@@ -17,6 +17,7 @@ function loadPrompt(filename: string): string {
 }
 
 const intakeCopilotPrompt = loadPrompt('intake-copilot.md');
+const elaborationCopilotPrompt = loadPrompt('elaboration-copilot.md');
 const draftExtractorPrompt = loadPrompt('draft-extractor.md');
 const toolPlannerPrompt = loadPrompt('tool-planner.md');
 const summaryGeneratorPrompt = loadPrompt('summary-generator.md');
@@ -57,8 +58,9 @@ export interface ConversationMessage {
 export async function* streamCopilotResponse(
   conversationHistory: ConversationMessage[],
   additionalContext?: string,
+  persona?: 'intake' | 'elaboration',
 ): AsyncGenerator<string, string, undefined> {
-  let systemPrompt = intakeCopilotPrompt;
+  let systemPrompt = persona === 'elaboration' ? elaborationCopilotPrompt : intakeCopilotPrompt;
   if (additionalContext) {
     systemPrompt += '\n\n' + additionalContext;
   }
