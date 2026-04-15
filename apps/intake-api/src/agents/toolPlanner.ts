@@ -113,6 +113,27 @@ export async function executeTools(
         contextParts.push(
           `### ${r.toolId}\n\n\`\`\`json\n${JSON.stringify(r.output, null, 2)}\n\`\`\``,
         );
+
+        // Auto-save repo URL when repo-discovery succeeds
+        if (r.toolId === 'repo-discovery' && r.output?.repoUrl) {
+          try {
+            const wsResult = await query<{ intake_workspace_id: string }>(
+              'SELECT intake_workspace_id FROM intake_sessions WHERE id = $1',
+              [sessionId],
+            );
+            const wsId = wsResult.rows[0]?.intake_workspace_id;
+            if (wsId) {
+              await query(
+                `UPDATE intake_workspaces SET repo_url = $1, repo_status = 'READY', updated_at = NOW()
+                 WHERE id = $2 AND (repo_url IS NULL OR repo_url = '')`,
+                [r.output.repoUrl, wsId],
+              );
+              console.info(`[ToolPlanner] Saved repo URL ${r.output.repoUrl} to workspace ${wsId}`);
+            }
+          } catch {
+            /* non-fatal */
+          }
+        }
       } else {
         contextParts.push(`### ${r.toolId}\n\nTool call failed: ${r.error || r.status}`);
       }
