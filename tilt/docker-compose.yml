@@ -86,6 +86,8 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
+      GH_TOKEN: ${GH_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     volumes:
       - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
     depends_on:

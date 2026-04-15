@@ -147,16 +147,19 @@ export const approvalResolvers = {
           ],
         );
 
-        // 7. Also keep legacy record for backward compat
-        await client
-          .query(
+        // 7. Also keep legacy record for backward compat (savepoint to avoid aborting transaction)
+        try {
+          await client.query('SAVEPOINT legacy_artifact');
+          await client.query(
             `INSERT INTO approved_intake_artifacts (session_id, version, artifact, approved_by)
-           VALUES ($1, $2, $3, $4)`,
+             VALUES ($1, $2, $3, $4)`,
             [sessionId, draftVersion, artifactJson, approvedBy],
-          )
-          .catch(() => {
-            /* ignore if table doesn't exist */
-          });
+          );
+          await client.query('RELEASE SAVEPOINT legacy_artifact');
+        } catch {
+          await client.query('ROLLBACK TO SAVEPOINT legacy_artifact');
+          /* ignore if table doesn't exist or insert fails */
+        }
 
         // 8. Update session and workspace status
         await client.query(
