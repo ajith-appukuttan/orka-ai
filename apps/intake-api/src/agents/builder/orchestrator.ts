@@ -185,7 +185,25 @@ export async function executeBuild(
           skillsPrompt,
         );
         if (!codeResult || codeResult.changes.length === 0) {
-          throw new Error('Code generator produced no changes');
+          // No changes needed — mark as success (verification/read-only tasks)
+          console.info(`[Builder] Task ${task.id}: no changes needed (verification task)`);
+          completedCount++;
+          await query(
+            `UPDATE build_tasks SET status = 'SUCCESS', commit_message = 'No changes needed (verification)',
+             completed_at = NOW() WHERE build_run_id = $1 AND task_index = $2`,
+            [buildRunId, tasks.indexOf(task)],
+          );
+          await query(
+            `UPDATE build_runs SET completed_tasks = $1, updated_at = NOW() WHERE id = $2`,
+            [completedCount, buildRunId],
+          );
+          executionLog.push({
+            step: 'task_completed',
+            taskId: task.id,
+            noChanges: true,
+            timestamp: new Date().toISOString(),
+          });
+          continue;
         }
 
         // Read originals for review
