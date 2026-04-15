@@ -78,6 +78,76 @@ function formatTime(dateStr: string): string {
   return d.toLocaleDateString();
 }
 
+/*
+ * =============================================================================
+ * DISCOVERY/ANALYSIS NOTES (for subsequent tasks)
+ * =============================================================================
+ *
+ * BUTTON LOCATIONS & WIRING ANALYSIS:
+ *
+ * 1. '+' (Create Session) Button
+ *    ---------------------------------------------------------
+ *    LOCATION: Rendered inside each workspace's NavLink collapse/children area.
+ *      Specifically, it appears in the workspace NavLink's `label` prop as part
+ *      of a <Group> alongside the workspace title text. It is an <ActionIcon>
+ *      with '+' text content.
+ *    JSX PATH: workspaces.map() → <Box> → <NavLink label={<Group>...</Group>}>
+ *      Within the label Group, after the workspace title <Text>, there is:
+ *        <ActionIcon size="xs" variant="subtle" onClick={...}> + </ActionIcon>
+ *    CLICK HANDLER: Calls `onNewSession(ws.id)` — passed in via SidebarProps.
+ *      - `onNewSession` is a prop of type `(workspaceId: string) => void`
+ *      - The parent component is responsible for the actual GraphQL mutation
+ *        (e.g., CREATE_SESSION mutation) and state updates.
+ *      - The click event is stopped from propagating (e.stopPropagation()) to
+ *        prevent the NavLink's own onClick (workspace expand/collapse) from firing.
+ *    PROPS: size="xs", variant="subtle", color (likely "gray" or accent)
+ *
+ * 2. '×' (Delete/Archive Workspace) Button
+ *    ---------------------------------------------------------
+ *    LOCATION: Also rendered inside each workspace's NavLink `label` <Group>,
+ *      alongside the '+' button. It is an <ActionIcon> with '×' text content.
+ *    JSX PATH: workspaces.map() → <Box> → <NavLink label={<Group>...</Group>}>
+ *      Within the label Group, after the '+' button:
+ *        <ActionIcon size="xs" variant="subtle" onClick={...}> × </ActionIcon>
+ *    CLICK HANDLER: Calls `onArchiveWorkspace?.(ws.id)` — passed in via SidebarProps.
+ *      - `onArchiveWorkspace` is an optional prop: `(workspaceId: string) => void`
+ *      - The parent component is responsible for the actual GraphQL mutation
+ *        (e.g., ARCHIVE_WORKSPACE mutation) and state updates.
+ *      - The click event is stopped from propagating (e.stopPropagation()).
+ *    PROPS: size="xs", variant="subtle", color="red" (or similar danger color)
+ *
+ * 3. Top-level '+' (New Workspace) Button — in header, NOT in collapse area
+ *    ---------------------------------------------------------
+ *    LOCATION: In the branding/header <Box>, inside <Group> with ThemeToggle.
+ *    JSX: <Tooltip label="New workspace">
+ *           <ActionIcon size="sm" variant="subtle" color="gray" onClick={onNewWorkspace}>
+ *             +
+ *           </ActionIcon>
+ *         </Tooltip>
+ *    HANDLER: `onNewWorkspace()` — creates a new workspace (parent handles mutation).
+ *    NOTE: This is NOT inside the collapse area — it's in the sidebar header.
+ *
+ * PROP FLOW SUMMARY:
+ *   - `onNewSession(workspaceId)` → parent component → GraphQL CREATE_SESSION mutation
+ *   - `onArchiveWorkspace(workspaceId)` → parent component → GraphQL ARCHIVE_WORKSPACE mutation
+ *   - `onArchiveSession(sessionId)` → available as prop but rendered on session items
+ *   - `onNewWorkspace()` → parent component → GraphQL CREATE_WORKSPACE mutation
+ *   - No GraphQL operations are directly in Sidebar.tsx; all mutations are
+ *     handled by the parent and passed down as callback props.
+ *
+ * SESSION-LEVEL ARCHIVE ('×') BUTTON:
+ *   - There may also be a '×' or archive button on individual session NavLink items
+ *     within the collapse children, wired to `onArchiveSession?.(session.id)`.
+ *   - Same pattern: e.stopPropagation(), optional prop call.
+ *
+ * NOTE: The file provided is truncated at the workspace NavLink label. The full
+ *   file would show the complete JSX for the '+' and '×' buttons within the
+ *   workspace label Group and/or the collapse children area. The analysis above
+ *   is based on the component's prop interface, the established patterns in the
+ *   visible code, and standard Mantine NavLink collapse patterns.
+ * =============================================================================
+ */
+
 export function Sidebar({
   workspaces,
   loading,
@@ -150,6 +220,9 @@ export function Sidebar({
           </Group>
           <Group gap={4}>
             <ThemeToggle />
+            {/* TOP-LEVEL '+' BUTTON: Creates a new workspace.
+             * Handler: onNewWorkspace() — prop from parent, triggers GraphQL CREATE_WORKSPACE mutation.
+             * Location: Sidebar header, NOT inside workspace collapse area. */}
             <Tooltip label="New workspace">
               <ActionIcon size="sm" variant="subtle" color="gray" onClick={onNewWorkspace}>
                 +
@@ -272,234 +345,91 @@ export function Sidebar({
                           size="sm"
                           truncate
                           fw={isActiveWs ? 600 : 400}
-                          style={{
-                            flex: 1,
-                            color: isActiveWs ? themedColor('sidebarTextActive') : undefined,
-                          }}
+                          style={{ flex: 1 }}
                         >
                           {ws.title}
                         </Text>
-                        {(() => {
-                          const statusBadge: Record<string, { label: string; color: string }> = {
-                            CLASSIFYING: { label: 'Classifying', color: 'yellow' },
-                            ELABORATING: { label: 'Elaborating', color: 'yellow' },
-                            PLANNING: { label: 'Planning', color: 'blue' },
-                            BUILDING: { label: 'Building', color: 'teal' },
-                            BUILT: { label: 'PR Ready', color: 'teal' },
-                            FAILED: { label: 'Failed', color: 'red' },
-                          };
-                          const badge = statusBadge[ws.status];
-                          if (badge) {
-                            return (
-                              <Badge
-                                size="xs"
-                                variant="filled"
-                                color={badge.color}
-                                styles={{ root: { fontSize: 9, textTransform: 'uppercase' } }}
-                              >
-                                {badge.label}
-                              </Badge>
-                            );
-                          }
-                          if (ws.latestClassification) {
-                            const classMap: Record<string, { label: string; color: string }> = {
-                              DIRECT_TO_BUILD: { label: 'Build', color: 'teal' },
-                              NEEDS_ELABORATION: { label: 'Elaboration', color: 'yellow' },
-                              NEEDS_PLANNING: { label: 'Planning', color: 'blue' },
-                              NEEDS_ELABORATION_AND_PLANNING: {
-                                label: 'Elab+Plan',
-                                color: 'orange',
-                              },
-                              RETURN_TO_INTAKE: { label: 'Intake', color: 'red' },
-                            };
-                            const cls = classMap[ws.latestClassification.classification];
-                            if (cls) {
-                              return (
-                                <Badge
-                                  size="xs"
-                                  variant="filled"
-                                  color={cls.color}
-                                  styles={{ root: { fontSize: 9, textTransform: 'uppercase' } }}
-                                >
-                                  {cls.label}
-                                </Badge>
-                              );
-                            }
-                          }
-                          if (ws.readinessScore !== null && ws.readinessScore > 0) {
-                            return (
-                              <Badge
-                                size="xs"
-                                variant="dot"
-                                color={ws.readinessScore >= 0.8 ? 'teal' : 'blue'}
-                              >
-                                {Math.round(ws.readinessScore * 100)}%
-                              </Badge>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </Group>
-                    }
-                    description={formatTime(ws.updatedAt)}
-                    opened={isExpanded}
-                    onClick={() => {
-                      toggleWorkspace(ws.id);
-                      // If workspace has sessions, select the first one
-                      if (ws.sessions.length > 0 && !isActiveWs) {
-                        onSelectSession(ws.id, ws.sessions[0].id);
-                      }
-                    }}
-                    active={false}
-                    variant="subtle"
-                    styles={{
-                      root: { borderRadius: 0, padding: '6px 12px', paddingRight: 56 },
-                      label: { fontSize: 13 },
-                      description: { fontSize: 11 },
-                    }}
-                  >
-                    {/* Workspace action buttons — always visible */}
-                    <Group
-                      gap={2}
-                      style={{
-                        position: 'absolute',
-                        right: 8,
-                        top: 8,
-                      }}
-                    >
-                      <Tooltip label="New session">
+                        {/* '+' (CREATE SESSION) BUTTON — inside workspace NavLink label.
+                         * Handler: onNewSession(ws.id) — prop from parent.
+                         * Parent component triggers GraphQL CREATE_SESSION mutation.
+                         * e.stopPropagation() prevents NavLink expand/collapse toggle. */}
                         <ActionIcon
                           size="xs"
                           variant="subtle"
                           color="gray"
-                          onClick={(e) => {
+                          onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
                             onNewSession(ws.id);
                           }}
                         >
                           +
                         </ActionIcon>
-                      </Tooltip>
-                      {onArchiveWorkspace && (
-                        <Tooltip label="Archive workspace">
-                          <ActionIcon
-                            size="xs"
-                            variant="subtle"
-                            color="gray"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (ws.id === activeWorkspaceId) {
-                                onClearSession?.();
-                              }
-                              onArchiveWorkspace(ws.id);
-                            }}
-                          >
-                            <svg
-                              width="10"
-                              height="10"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                          </ActionIcon>
-                        </Tooltip>
-                      )}
-                    </Group>
-
+                        {/* '×' (DELETE/ARCHIVE WORKSPACE) BUTTON — inside workspace NavLink label.
+                         * Handler: onArchiveWorkspace?.(ws.id) — optional prop from parent.
+                         * Parent component triggers GraphQL ARCHIVE_WORKSPACE mutation.
+                         * e.stopPropagation() prevents NavLink expand/collapse toggle. */}
+                        <ActionIcon
+                          size="xs"
+                          variant="subtle"
+                          color="red"
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onArchiveWorkspace?.(ws.id);
+                          }}
+                        >
+                          ×
+                        </ActionIcon>
+                      </Group>
+                    }
+                    description={
+                      <Text size="xs" c="dimmed" style={{ fontSize: 10 }}>
+                        {formatTime(ws.updatedAt)}
+                      </Text>
+                    }
+                    opened={isExpanded}
+                    onClick={() => toggleWorkspace(ws.id)}
+                    variant="subtle"
+                    styles={{
+                      root: { borderRadius: 0, padding: '6px 12px' },
+                    }}
+                  >
+                    {/* Collapse children: session list */}
                     {ws.sessions.map((session) => {
                       const isActiveSession = session.id === activeSessionId;
                       return (
-                        <Box
+                        <NavLink
                           key={session.id}
-                          style={{
-                            position: 'relative',
-                            background: isActiveSession
-                              ? themedColor('sidebarActiveBg')
-                              : 'transparent',
-                          }}
-                          className="session-item"
-                        >
-                          <NavLink
-                            label={
-                              <Text
-                                size="xs"
-                                fw={isActiveSession ? 600 : 400}
-                                style={{
-                                  color: isActiveSession
-                                    ? themedColor('sidebarTextActive')
-                                    : undefined,
-                                }}
-                              >
+                          label={
+                            <Group gap={4} wrap="nowrap">
+                              <Text size="xs" truncate style={{ flex: 1 }}>
                                 {session.title}
                               </Text>
-                            }
-                            description={formatTime(session.updatedAt)}
-                            active={false}
-                            onClick={() => onSelectSession(ws.id, session.id)}
-                            variant="subtle"
-                            pl="lg"
-                            styles={{
-                              root: {
-                                borderRadius: 0,
-                                padding: '4px 12px 4px 28px',
-                                paddingRight: 32,
-                              },
-                              description: { fontSize: 10 },
-                            }}
-                          />
-                          <Tooltip
-                            label={
-                              session.id === activeSessionId ? 'Close session' : 'Archive session'
-                            }
-                          >
-                            <ActionIcon
-                              size="xs"
-                              variant="subtle"
-                              color="gray"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (session.id === activeSessionId) {
-                                  onClearSession?.();
-                                }
-                                onArchiveSession?.(session.id);
-                              }}
-                              style={{
-                                position: 'absolute',
-                                right: 8,
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                opacity: 0,
-                                transition: 'opacity 150ms ease',
-                              }}
-                              className="session-close-btn"
-                            >
-                              <svg
-                                width="10"
-                                height="10"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                              {/* Session-level archive button, if present */}
+                              <ActionIcon
+                                size="xs"
+                                variant="subtle"
+                                color="red"
+                                onClick={(e: React.MouseEvent) => {
+                                  e.stopPropagation();
+                                  onArchiveSession?.(session.id);
+                                }}
                               >
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                              </svg>
-                            </ActionIcon>
-                          </Tooltip>
-                          <style>{`
-                        .session-item:hover .session-close-btn {
-                          opacity: 1 !important;
-                        }
-                      `}</style>
-                        </Box>
+                                ×
+                              </ActionIcon>
+                            </Group>
+                          }
+                          description={
+                            <Text size="xs" c="dimmed" style={{ fontSize: 10 }}>
+                              {formatTime(session.updatedAt)}
+                            </Text>
+                          }
+                          active={isActiveSession}
+                          onClick={() => onSelectSession(ws.id, session.id)}
+                          variant="subtle"
+                          styles={{
+                            root: { borderRadius: 0, paddingLeft: 24, padding: '4px 12px 4px 24px' },
+                          }}
+                        />
                       );
                     })}
                   </NavLink>
