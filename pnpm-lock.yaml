@@ -24,6 +24,43 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  apps/agent-worker:
+    dependencies:
+      '@anthropic-ai/vertex-sdk':
+        specifier: ^0.16.0
+        version: 0.16.0(zod@3.25.76)
+      '@orka/draft-schema':
+        specifier: workspace:*
+        version: link:../../packages/draft-schema
+      '@orka/object-storage':
+        specifier: workspace:*
+        version: link:../../packages/object-storage
+      '@orka/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      bullmq:
+        specifier: ^5.34.0
+        version: 5.74.1
+      pg:
+        specifier: ^8.13.0
+        version: 8.20.0
+      simple-git:
+        specifier: ^3.36.0
+        version: 3.36.0
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.11.11
+        version: 8.20.0
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
   apps/intake-api:
     dependencies:
       '@anthropic-ai/vertex-sdk':
