@@ -595,10 +595,11 @@ export function VisualIntakePanel({
                   <Box flex={1} pt={2}>
                     <Text
                       size="xs"
-                      fw={600}
+                      fw={700}
                       mb={4}
                       ff="monospace"
-                      style={{ color: themedColor('chatTextDimmed') }}
+                      tt="uppercase"
+                      style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
                     >
                       {msg.role === 'user' ? 'You' : 'Virtual PM'}
                     </Text>
