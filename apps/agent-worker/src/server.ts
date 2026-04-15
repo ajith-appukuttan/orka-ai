@@ -18,22 +18,22 @@ const connection = parseRedisUrl(REDIS_URL);
 
 // ─── Workers ─────────────────────────────────────────────
 
-const chatWorker = new Worker('orka:chat-turn', processChatTurn, {
+const chatWorker = new Worker('orka-chat-turn', processChatTurn, {
   connection,
   concurrency: 3, // Max 3 concurrent chat turns
 });
 
-const classifyWorker = new Worker('orka:classify', processClassify, {
+const classifyWorker = new Worker('orka-classify', processClassify, {
   connection,
   concurrency: 2,
 });
 
-const buildWorker = new Worker('orka:build', processBuild, {
+const buildWorker = new Worker('orka-build', processBuild, {
   connection,
   concurrency: 1, // Builds are heavy — one at a time
 });
 
-const repoAnalyzeWorker = new Worker('orka:repo-analyze', processRepoAnalyze, {
+const repoAnalyzeWorker = new Worker('orka-repo-analyze', processRepoAnalyze, {
   connection,
   concurrency: 2,
 });

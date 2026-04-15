@@ -15,7 +15,7 @@ const connection = parseRedisUrl(REDIS_URL);
 /**
  * Job queue for chat turn pipeline (Claude streaming + draft extraction + memory).
  */
-export const chatTurnQueue = new Queue('orka:chat-turn', {
+export const chatTurnQueue = new Queue('orka-chat-turn', {
   connection,
   defaultJobOptions: {
     attempts: 2,
@@ -28,7 +28,7 @@ export const chatTurnQueue = new Queue('orka:chat-turn', {
 /**
  * Job queue for intake readiness classification.
  */
-export const classifyQueue = new Queue('orka:classify', {
+export const classifyQueue = new Queue('orka-classify', {
   connection,
   defaultJobOptions: {
     attempts: 2,
@@ -41,7 +41,7 @@ export const classifyQueue = new Queue('orka:classify', {
 /**
  * Job queue for builder execution.
  */
-export const buildQueue = new Queue('orka:build', {
+export const buildQueue = new Queue('orka-build', {
   connection,
   defaultJobOptions: {
     attempts: 1, // Builds are not safely retryable (worktree state)
@@ -53,7 +53,7 @@ export const buildQueue = new Queue('orka:build', {
 /**
  * Job queue for repo analysis.
  */
-export const repoAnalyzeQueue = new Queue('orka:repo-analyze', {
+export const repoAnalyzeQueue = new Queue('orka-repo-analyze', {
   connection,
   defaultJobOptions: {
     attempts: 2,
