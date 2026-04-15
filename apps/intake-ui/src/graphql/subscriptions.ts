@@ -7,6 +7,7 @@ export const MESSAGE_STREAM = gql`
       sessionId
       role
       content
+      persona
       createdAt
     }
   }

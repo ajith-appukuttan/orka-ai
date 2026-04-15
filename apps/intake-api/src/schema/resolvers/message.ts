@@ -9,7 +9,7 @@ export const messageResolvers = {
       { sessionId, limit = 50, offset = 0 }: { sessionId: string; limit?: number; offset?: number },
     ) => {
       const result = await query(
-        `SELECT id, session_id as "sessionId", role, content,
+        `SELECT id, session_id as "sessionId", role, content, persona,
                 tool_calls as "toolCalls", created_at as "createdAt"
          FROM intake_messages
          WHERE session_id = $1

@@ -235,9 +235,9 @@ export const approvalResolvers = {
 
               // Persist as a system message in the chat
               const msgResult = await query(
-                `INSERT INTO intake_messages (session_id, role, content)
-               VALUES ($1, 'assistant', $2)
-               RETURNING id, session_id as "sessionId", role, content,
+                `INSERT INTO intake_messages (session_id, role, content, persona)
+               VALUES ($1, 'assistant', $2, 'Virtual Classifier')
+               RETURNING id, session_id as "sessionId", role, content, persona,
                          tool_calls as "toolCalls", created_at as "createdAt"`,
                 [sessionId, content],
               );
@@ -272,9 +272,9 @@ export const approvalResolvers = {
                 if (repoUrl) {
                   console.info(`[Builder] Auto-triggering build for run ${runId}...`);
                   const buildStartMsg = await query(
-                    `INSERT INTO intake_messages (session_id, role, content)
-                     VALUES ($1, 'assistant', $2)
-                     RETURNING id, session_id as "sessionId", role, content,
+                    `INSERT INTO intake_messages (session_id, role, content, persona)
+                     VALUES ($1, 'assistant', $2, 'Virtual Builder')
+                     RETURNING id, session_id as "sessionId", role, content, persona,
                                tool_calls as "toolCalls", created_at as "createdAt"`,
                     [
                       sessionId,

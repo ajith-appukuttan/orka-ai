@@ -399,7 +399,11 @@ export function MessageList({
                     tt="uppercase"
                     style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
                   >
-                    {msg.role === 'user' ? 'You' : msg.role === 'system' ? 'System' : botName}
+                    {msg.role === 'user'
+                      ? 'You'
+                      : msg.role === 'system'
+                        ? 'System'
+                        : (msg as any).persona || botName}
                   </Text>
                   {isClassifierMessage(msg.content) ? (
                     (() => {

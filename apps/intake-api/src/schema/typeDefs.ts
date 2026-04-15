@@ -93,6 +93,7 @@ export const typeDefs = `#graphql
     sessionId: ID!
     role: MessageRole!
     content: String!
+    persona: String
     toolCalls: JSON
     createdAt: DateTime!
   }

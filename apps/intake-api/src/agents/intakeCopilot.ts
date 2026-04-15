@@ -116,13 +116,14 @@ export async function runChatTurnPipeline(sessionId: string): Promise<void> {
     },
   });
 
-  // 6. Persist the complete assistant message
+  // 6. Persist the complete assistant message with persona
+  const personaName = persona === 'elaboration' ? 'Virtual Elaborator' : 'Virtual PM';
   const assistantMsg = await query(
-    `INSERT INTO intake_messages (session_id, role, content)
-     VALUES ($1, 'assistant', $2)
-     RETURNING id, session_id as "sessionId", role, content,
+    `INSERT INTO intake_messages (session_id, role, content, persona)
+     VALUES ($1, 'assistant', $2, $3)
+     RETURNING id, session_id as "sessionId", role, content, persona,
                tool_calls as "toolCalls", created_at as "createdAt"`,
-    [sessionId, fullResponseText],
+    [sessionId, fullResponseText, personaName],
   );
 
   const savedMessage = assistantMsg.rows[0];

@@ -400,9 +400,9 @@ export async function executeBuild(
       chatContent += `\n*Run ID: ${runId}*`;
 
       const msgResult = await query(
-        `INSERT INTO intake_messages (session_id, role, content)
-         VALUES ($1, 'assistant', $2)
-         RETURNING id, session_id as "sessionId", role, content,
+        `INSERT INTO intake_messages (session_id, role, content, persona)
+         VALUES ($1, 'assistant', $2, 'Virtual Builder')
+         RETURNING id, session_id as "sessionId", role, content, persona,
                    tool_calls as "toolCalls", created_at as "createdAt"`,
         [sessionId, chatContent],
       );
