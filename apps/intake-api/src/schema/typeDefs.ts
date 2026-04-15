@@ -22,6 +22,7 @@ export const typeDefs = `#graphql
     latestDraft: IntakeDraftVersion
     readinessScore: Float
     repoAnalysis: RepositoryAnalysis
+    latestClassification: IntakeClassification
   }
 
   enum WorkspaceStatus {

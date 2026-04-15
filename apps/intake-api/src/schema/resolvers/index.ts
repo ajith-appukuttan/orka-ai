@@ -41,6 +41,7 @@ export const resolvers = {
   IntakeWorkspace: {
     ...workspaceResolvers.IntakeWorkspace,
     ...repoResolvers.IntakeWorkspace,
+    ...classificationResolvers.IntakeWorkspace,
   },
   IntakeSession: sessionResolvers.IntakeSession,
 };

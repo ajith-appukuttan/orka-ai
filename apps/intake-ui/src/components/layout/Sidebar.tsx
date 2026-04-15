@@ -22,6 +22,12 @@ interface SidebarSession {
   updatedAt: string;
 }
 
+interface SidebarClassification {
+  classification: string;
+  buildReadinessScore: number;
+  runId: string;
+}
+
 interface SidebarWorkspace {
   id: string;
   title: string;
@@ -29,6 +35,7 @@ interface SidebarWorkspace {
   readinessScore: number | null;
   updatedAt: string;
   sessions: SidebarSession[];
+  latestClassification?: SidebarClassification | null;
 }
 
 interface SearchResult {
@@ -272,7 +279,35 @@ export function Sidebar({
                         >
                           {ws.title}
                         </Text>
-                        {ws.readinessScore !== null && ws.readinessScore > 0 && (
+                        {ws.latestClassification ? (
+                          <Badge
+                            size="xs"
+                            variant="filled"
+                            color={
+                              ws.latestClassification.classification === 'DIRECT_TO_BUILD'
+                                ? 'teal'
+                                : ws.latestClassification.classification === 'NEEDS_ELABORATION'
+                                  ? 'yellow'
+                                  : ws.latestClassification.classification === 'NEEDS_PLANNING'
+                                    ? 'blue'
+                                    : ws.latestClassification.classification === 'RETURN_TO_INTAKE'
+                                      ? 'red'
+                                      : 'orange'
+                            }
+                            styles={{ root: { fontSize: 9, textTransform: 'uppercase' } }}
+                          >
+                            {ws.latestClassification.classification === 'DIRECT_TO_BUILD'
+                              ? 'Build'
+                              : ws.latestClassification.classification === 'NEEDS_ELABORATION'
+                                ? 'Elaboration'
+                                : ws.latestClassification.classification === 'NEEDS_PLANNING'
+                                  ? 'Planning'
+                                  : ws.latestClassification.classification ===
+                                      'NEEDS_ELABORATION_AND_PLANNING'
+                                    ? 'Elab + Plan'
+                                    : 'Intake'}
+                          </Badge>
+                        ) : ws.readinessScore !== null && ws.readinessScore > 0 ? (
                           <Badge
                             size="xs"
                             variant="dot"
@@ -280,7 +315,7 @@ export function Sidebar({
                           >
                             {Math.round(ws.readinessScore * 100)}%
                           </Badge>
-                        )}
+                        ) : null}
                       </Group>
                     }
                     description={formatTime(ws.updatedAt)}

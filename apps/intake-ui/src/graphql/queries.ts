@@ -18,6 +18,11 @@ export const GET_WORKSPACES = gql`
         createdAt
         updatedAt
       }
+      latestClassification {
+        classification
+        buildReadinessScore
+        runId
+      }
     }
   }
 `;
