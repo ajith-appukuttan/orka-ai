@@ -1,9 +1,85 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { ScrollArea, Stack, Group, Text, Box, Loader, Button } from '@mantine/core';
+import { ScrollArea, Stack, Group, Text, Box, Loader, Button, Badge } from '@mantine/core';
 import Markdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import { StreamingMessage } from './StreamingMessage';
 import { useTheme } from '../../hooks/useTheme';
+
+// ─── Classifier result detection ───────────────────────
+function isClassifierMessage(content: string): boolean {
+  return content.includes('Intake Readiness:') && content.includes('Build Readiness Score:');
+}
+
+interface ParsedClassification {
+  label: string;
+  score: number;
+  confidence: number;
+  reasoning: string;
+  blockingQuestions: string[];
+  nextStages: string;
+  runId: string;
+  reviewLink: string | null;
+}
+
+function parseClassifierMessage(content: string): ParsedClassification | null {
+  const labelMatch = content.match(/Intake Readiness:\s*(.+?)(?:\n|$)/);
+  const scoreMatch = content.match(/Build Readiness Score:\s*(\d+)%/);
+  const confMatch = content.match(/Confidence:\s*(\d+)%/);
+  const stagesMatch = content.match(/Next Stages:\s*(.+?)(?:\n|$)/);
+  const runMatch = content.match(/Run ID:\s*([\w-]+)/);
+  const linkMatch = content.match(/\[Review Approved PRD\]\(([^)]+)\)/);
+
+  if (!labelMatch) return null;
+
+  // Extract reasoning (between confidence line and blocking questions or next stages)
+  const lines = content.split('\n');
+  const reasoningLines: string[] = [];
+  const blockingQuestions: string[] = [];
+  let inBlocking = false;
+  let pastHeader = false;
+
+  for (const line of lines) {
+    if (line.includes('Build Readiness Score:')) {
+      pastHeader = true;
+      continue;
+    }
+    if (line.startsWith('**Blocking Questions:**')) {
+      inBlocking = true;
+      continue;
+    }
+    if (
+      line.startsWith('**Next Stages:**') ||
+      line.startsWith('---') ||
+      line.startsWith('*Run ID:') ||
+      line.startsWith('[Review')
+    ) {
+      inBlocking = false;
+      continue;
+    }
+    if (inBlocking && line.startsWith('- ')) {
+      blockingQuestions.push(line.substring(2));
+    } else if (
+      pastHeader &&
+      !inBlocking &&
+      line.trim() &&
+      !line.startsWith('##') &&
+      !line.startsWith('**')
+    ) {
+      reasoningLines.push(line);
+    }
+  }
+
+  return {
+    label: labelMatch[1].trim(),
+    score: scoreMatch ? parseInt(scoreMatch[1]) : 0,
+    confidence: confMatch ? parseInt(confMatch[1]) : 0,
+    reasoning: reasoningLines.join(' ').trim(),
+    blockingQuestions,
+    nextStages: stagesMatch ? stagesMatch[1].trim() : '',
+    runId: runMatch ? runMatch[1] : '',
+    reviewLink: linkMatch ? linkMatch[1] : null,
+  };
+}
 
 interface Message {
   id: string;
@@ -54,6 +130,146 @@ function extractOptions(content: string): string[] {
     return options;
   }
   return [];
+}
+
+// ─── Classifier Result Card ────────────────────────────
+function ClassifierCard({
+  parsed,
+  onNavigate,
+}: {
+  parsed: ParsedClassification;
+  onNavigate: (href: string) => void;
+}) {
+  const { themedColor } = useTheme();
+
+  const colorMap: Record<string, string> = {
+    'Ready for Build': 'teal',
+    'Needs Elaboration': 'yellow',
+    'Needs Planning': 'blue',
+    'Needs Elaboration & Planning': 'orange',
+    'Return to Intake': 'red',
+  };
+  const badgeColor = colorMap[parsed.label] || 'gray';
+
+  const borderColorMap: Record<string, string> = {
+    'Ready for Build': '#3fb950',
+    'Needs Elaboration': '#d29922',
+    'Needs Planning': '#58a6ff',
+    'Needs Elaboration & Planning': '#db6d28',
+    'Return to Intake': '#f85149',
+  };
+  const borderColor = borderColorMap[parsed.label] || themedColor('cardBorder');
+
+  return (
+    <Box
+      style={{
+        border: `1px solid ${borderColor}`,
+        borderLeft: `4px solid ${borderColor}`,
+        borderRadius: 8,
+        padding: '16px 20px',
+        background: themedColor('surfaceBg'),
+        marginTop: 4,
+      }}
+    >
+      {/* Header */}
+      <Group justify="space-between" align="center" mb="sm">
+        <Group gap="sm">
+          <Badge size="lg" variant="filled" color={badgeColor} radius="sm">
+            {parsed.label}
+          </Badge>
+          <Text size="xs" ff="monospace" style={{ color: themedColor('textDimmed') }}>
+            {parsed.runId}
+          </Text>
+        </Group>
+      </Group>
+
+      {/* Scores */}
+      <Group gap="lg" mb="sm">
+        <Group gap={6}>
+          <Text size="xs" ff="monospace" style={{ color: themedColor('textDimmed') }}>
+            READINESS
+          </Text>
+          <Text size="sm" fw={700} ff="monospace" style={{ color: themedColor('chatText') }}>
+            {parsed.score}%
+          </Text>
+        </Group>
+        <Group gap={6}>
+          <Text size="xs" ff="monospace" style={{ color: themedColor('textDimmed') }}>
+            CONFIDENCE
+          </Text>
+          <Text size="sm" fw={700} ff="monospace" style={{ color: themedColor('chatText') }}>
+            {parsed.confidence}%
+          </Text>
+        </Group>
+        {parsed.nextStages && (
+          <Group gap={6}>
+            <Text size="xs" ff="monospace" style={{ color: themedColor('textDimmed') }}>
+              NEXT
+            </Text>
+            <Text size="sm" fw={600} ff="monospace" style={{ color: themedColor('chatAccent') }}>
+              {parsed.nextStages}
+            </Text>
+          </Group>
+        )}
+      </Group>
+
+      {/* Reasoning */}
+      {parsed.reasoning && (
+        <Text size="sm" mb="sm" style={{ color: themedColor('chatText'), lineHeight: 1.6 }}>
+          {parsed.reasoning}
+        </Text>
+      )}
+
+      {/* Blocking Questions */}
+      {parsed.blockingQuestions.length > 0 && (
+        <Box
+          mt="sm"
+          p="sm"
+          style={{
+            background: themedColor('chatBg'),
+            borderRadius: 6,
+            border: `1px solid ${themedColor('cardBorder')}`,
+          }}
+        >
+          <Text
+            size="xs"
+            fw={700}
+            ff="monospace"
+            tt="uppercase"
+            mb={6}
+            style={{ color: themedColor('warningText'), letterSpacing: '0.08em' }}
+          >
+            Blocking Questions
+          </Text>
+          {parsed.blockingQuestions.map((q, i) => (
+            <Group key={i} gap={6} align="flex-start" mb={4}>
+              <Text size="xs" style={{ color: themedColor('warningText') }}>
+                •
+              </Text>
+              <Text size="xs" style={{ color: themedColor('chatText'), lineHeight: 1.5 }}>
+                {q}
+              </Text>
+            </Group>
+          ))}
+        </Box>
+      )}
+
+      {/* Review link */}
+      {parsed.reviewLink && (
+        <Box mt="sm">
+          <Button
+            size="xs"
+            radius="xl"
+            variant="outline"
+            color={badgeColor}
+            onClick={() => onNavigate(parsed.reviewLink!)}
+          >
+            Review Approved PRD
+          </Button>
+        </Box>
+      )}
+    </Box>
+  );
 }
 
 function Avatar({ role }: { role: string }) {
@@ -181,16 +397,32 @@ export function MessageList({
                   >
                     {msg.role === 'user' ? 'You' : msg.role === 'system' ? 'System' : 'Virtual PM'}
                   </Text>
-                  <Box
-                    className="orka-markdown"
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 1.7,
-                      color: themedColor('chatText'),
-                    }}
-                  >
-                    <Markdown components={{ a: linkRenderer }}>{msg.content}</Markdown>
-                  </Box>
+                  {isClassifierMessage(msg.content) ? (
+                    (() => {
+                      const parsed = parseClassifierMessage(msg.content);
+                      return parsed ? (
+                        <ClassifierCard parsed={parsed} onNavigate={navigate} />
+                      ) : (
+                        <Box
+                          className="orka-markdown"
+                          style={{ fontSize: 14, lineHeight: 1.7, color: themedColor('chatText') }}
+                        >
+                          <Markdown components={{ a: linkRenderer }}>{msg.content}</Markdown>
+                        </Box>
+                      );
+                    })()
+                  ) : (
+                    <Box
+                      className="orka-markdown"
+                      style={{
+                        fontSize: 14,
+                        lineHeight: 1.7,
+                        color: themedColor('chatText'),
+                      }}
+                    >
+                      <Markdown components={{ a: linkRenderer }}>{msg.content}</Markdown>
+                    </Box>
+                  )}
 
                   {/* Quick reply buttons for options */}
                   {options.length > 0 && onQuickReply && (
