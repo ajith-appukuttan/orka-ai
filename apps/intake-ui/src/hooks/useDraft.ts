@@ -102,12 +102,6 @@ export function useDraft(sessionId: string | undefined, workspaceId?: string | u
           variables: { workspaceId },
           data: { intakeLatestDraft: updated },
         });
-      } else if (sessionId) {
-        client.writeQuery({
-          query: GET_DRAFT,
-          variables: { sessionId },
-          data: { intakeDraft: updated },
-        });
       }
     },
   });

@@ -23,18 +23,20 @@ export const STREAMING_CHUNK = gql`
 `;
 
 export const DRAFT_UPDATED = gql`
-  subscription DraftUpdated($sessionId: ID!) {
-    intakeDraftUpdated(sessionId: $sessionId) {
+  subscription DraftUpdated($workspaceId: ID!) {
+    intakeDraftUpdated(workspaceId: $workspaceId) {
       id
+      intakeWorkspaceId
       version
-      draft
+      draftJson
       readinessScore
+      readyForReview
     }
   }
 `;
 
 export const READINESS_UPDATED = gql`
-  subscription ReadinessUpdated($sessionId: ID!) {
-    intakeReadinessUpdated(sessionId: $sessionId)
+  subscription ReadinessUpdated($workspaceId: ID!) {
+    intakeReadinessUpdated(workspaceId: $workspaceId)
   }
 `;
