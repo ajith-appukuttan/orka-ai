@@ -561,6 +561,7 @@ export function IntakePage() {
                   isLoading={isSending}
                   isStreaming={isStreaming}
                   streamingContent={streamingContent}
+                  readinessScore={readinessScore}
                 />
               </Box>
 
