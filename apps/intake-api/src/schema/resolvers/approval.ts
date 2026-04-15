@@ -29,8 +29,13 @@ export const approvalResolvers = {
 
         const session = sessionResult.rows[0];
         if (!session) throw new Error(`Session ${sessionId} not found`);
-        if (session.status !== 'REVIEWING' && session.status !== 'ACTIVE') {
-          throw new Error(`Session must be in REVIEWING or ACTIVE state, got ${session.status}`);
+
+        // Allow re-approval for sessions that were classified as needing more work
+        const allowedStates = ['REVIEWING', 'ACTIVE', 'APPROVED'];
+        if (!allowedStates.includes(session.status)) {
+          throw new Error(
+            `Session must be in REVIEWING, ACTIVE, or APPROVED state, got ${session.status}`,
+          );
         }
 
         // 2. Get latest draft (workspace-scoped first, legacy fallback)
