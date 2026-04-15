@@ -5,7 +5,7 @@ import { ApprovalButton } from './ApprovalButton';
 
 interface ReviewScreenProps {
   draft: IntakeDraft;
-  onApprove: () => void;
+  onApprove?: () => void;
   isApproving: boolean;
 }
 
@@ -48,7 +48,7 @@ export function ReviewScreen({ draft, onApprove, isApproving }: ReviewScreenProp
                 <Box
                   key={i}
                   p="sm"
-                  style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 8 }}
+                  style={{ border: '1px solid var(--mantine-color-dark-4)', borderRadius: 8 }}
                 >
                   <Text size="sm">
                     As a <strong>{story.role || '...'}</strong>, I want to{' '}

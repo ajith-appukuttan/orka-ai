@@ -138,21 +138,21 @@ export function WelcomeScreen({ onStart, isLoading }: WelcomeScreenProps) {
               width: 48,
               height: 48,
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)',
+              background: `linear-gradient(135deg, ${themedColor('accentGreenGradientFrom')} 0%, ${themedColor('accentGreenGradientTo')} 100%)`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'white',
+              color: themedColor('avatarText'),
               fontSize: 22,
               fontWeight: 700,
             }}
           >
             V
           </Box>
-          <Title order={1} fw={600} ta="center">
+          <Title order={1} fw={600} ta="center" style={{ color: themedColor('chatText') }}>
             How would you like to start?
           </Title>
-          <Text c="dimmed" size="md" ta="center" maw={480}>
+          <Text size="md" ta="center" maw={480} style={{ color: themedColor('textDimmed') }}>
             Choose how you want to capture your product requirements.
           </Text>
         </Stack>
@@ -170,27 +170,33 @@ export function WelcomeScreen({ onStart, isLoading }: WelcomeScreenProps) {
                 style={{
                   cursor: 'pointer',
                   transition: 'all 150ms ease',
-                  borderColor: isSelected ? '#10a37f' : undefined,
+                  borderColor: isSelected ? themedColor('accentGreen') : themedColor('cardBorder'),
                   borderWidth: isSelected ? 2 : 1,
-                  background: isSelected ? 'rgba(16, 163, 127, 0.04)' : undefined,
+                  background: isSelected ? themedColor('surfaceBg') : themedColor('chatBg'),
                 }}
                 onClick={() => setSelectedMethod(method.id)}
                 onMouseEnter={(e) => {
-                  if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = '#10a37f80';
+                  if (!isSelected)
+                    (e.currentTarget as HTMLElement).style.borderColor = themedColor('accentGreen');
                 }}
                 onMouseLeave={(e) => {
-                  if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = '';
+                  if (!isSelected)
+                    (e.currentTarget as HTMLElement).style.borderColor = themedColor('cardBorder');
                 }}
               >
                 <Group gap="sm" mb="xs">
-                  <Box style={{ color: isSelected ? '#10a37f' : 'var(--mantine-color-dimmed)' }}>
+                  <Box
+                    style={{
+                      color: isSelected ? themedColor('accentGreen') : themedColor('textDimmed'),
+                    }}
+                  >
                     {method.icon}
                   </Box>
-                  <Text size="sm" fw={600}>
+                  <Text size="sm" fw={600} style={{ color: themedColor('chatText') }}>
                     {method.title}
                   </Text>
                 </Group>
-                <Text size="xs" c="dimmed" lh={1.5}>
+                <Text size="xs" lh={1.5} style={{ color: themedColor('textDimmed') }}>
                   {method.description}
                 </Text>
                 {isSelected && (
@@ -232,7 +238,7 @@ export function WelcomeScreen({ onStart, isLoading }: WelcomeScreenProps) {
                 <Text size="xs" fw={500} truncate>
                   {selectedFile.name}
                 </Text>
-                <Text size="xs" c="dimmed">
+                <Text size="xs" style={{ color: themedColor('textDimmed') }}>
                   {(selectedFile.size / 1024).toFixed(0)} KB
                 </Text>
               </Stack>
@@ -323,7 +329,7 @@ export function WelcomeScreen({ onStart, isLoading }: WelcomeScreenProps) {
             </Box>
           </Group>
         </Paper>
-        <Text size="xs" c="dimmed" ta="center" mt={8}>
+        <Text size="xs" ta="center" mt={8} style={{ color: themedColor('textDimmed') }}>
           {selectedMethod === 'chat' &&
             'Describe your idea to start a conversation with the Virtual PM'}
           {selectedMethod === 'repo' && 'Paste a GitHub URL to analyze the repository'}

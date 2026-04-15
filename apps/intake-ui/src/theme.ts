@@ -18,16 +18,17 @@ export const theme = createTheme({
     sidebarHoverBg: { light: '#e8e8eb', dark: '#25262b' },
     sidebarText: { light: '#3f3f46', dark: '#a1a1aa' },
     sidebarTextActive: { light: '#1e40af', dark: '#93c5fd' },
-    // Chat panel
-    chatBg: { light: '#ffffff', dark: '#25262b' },
-    userMsgBg: { light: '#eff6ff', dark: '#1e3a5f' },
+    // Chat panel — matches PRD terminal theme
+    chatBg: { light: '#1e1e2e', dark: '#0d1117' },
+    userMsgBg: { light: '#262637', dark: '#161b22' },
     assistantMsgBg: { light: 'transparent', dark: 'transparent' },
-    inputBg: { light: '#f4f4f4', dark: 'var(--mantine-color-dark-6)' },
-    surfaceBg: { light: '#ffffff', dark: 'var(--mantine-color-dark-7)' },
-    borderColor: {
-      light: 'var(--mantine-color-gray-2)',
-      dark: 'var(--mantine-color-dark-4)',
-    },
+    inputBg: { light: '#313244', dark: '#21262d' },
+    surfaceBg: { light: '#262637', dark: '#161b22' },
+    borderColor: { light: '#313244', dark: '#21262d' },
+    // Chat text colors — light text on dark background
+    chatText: { light: '#cdd6f4', dark: '#c9d1d9' },
+    chatTextDimmed: { light: '#6c7086', dark: '#484f58' },
+    chatAccent: { light: '#89b4fa', dark: '#58a6ff' },
     // Draft PRD panel — OpenCode / terminal theme
     prdBg: { light: '#1e1e2e', dark: '#0d1117' },
     prdSurfaceBg: { light: '#262637', dark: '#161b22' },
@@ -43,6 +44,19 @@ export const theme = createTheme({
     prdProgressBg: { light: '#313244', dark: '#21262d' },
     prdProgressFill: { light: '#89b4fa', dark: '#58a6ff' },
     prdProgressFillReady: { light: '#a6e3a1', dark: '#3fb950' },
+    // Shared accent colors (theme-aware)
+    accentGreen: { light: '#10a37f', dark: '#3fb950' },
+    accentGreenGlow: { light: '#10a37f', dark: '#3fb950' },
+    accentGreenGradientFrom: { light: '#10a37f', dark: '#3fb950' },
+    accentGreenGradientTo: { light: '#1a7f64', dark: '#2ea043' },
+    accentPurple: { light: '#5436DA', dark: '#8b5cf6' },
+    avatarText: { light: '#ffffff', dark: '#ffffff' },
+    // Borders for cards/screenshots
+    cardBorder: { light: '#313244', dark: '#21262d' },
+    // Dimmed text (replaces c="dimmed" which doesn't work well on dark bg)
+    textDimmed: { light: '#6c7086', dark: '#484f58' },
+    // Warning text
+    warningText: { light: '#f9e2af', dark: '#d29922' },
   },
 });
 

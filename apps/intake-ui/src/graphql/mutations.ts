@@ -77,10 +77,15 @@ export const APPROVE_DRAFT = gql`
   mutation ApproveDraft($sessionId: ID!, $approvedBy: String!) {
     approveIntakeDraft(sessionId: $sessionId, approvedBy: $approvedBy) {
       id
+      runId
+      stage
+      artifactType
       version
-      artifact
+      objectKey
+      checksum
       approvedBy
       approvedAt
+      status
     }
   }
 `;

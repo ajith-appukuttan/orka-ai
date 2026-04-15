@@ -79,6 +79,11 @@ export const IntakeDraftSchema = z.object({
   // As a [role], I want to [action] so that [outcome]. 3-5 is enough for a draft.
   userStories: z.array(UserStorySchema).default([]),
 
+  // --- Acceptance Criteria ---
+  // Specific, testable conditions that must be true for the requirement to be considered done.
+  // Each criterion should be verifiable by a tester or automated test.
+  acceptanceCriteria: z.array(z.string()).default([]),
+
   // --- Known Constraints ---
   // Technical, legal, timeline, or resource constraints already known
   constraints: z.array(z.string()).default([]),
@@ -174,6 +179,7 @@ export function computeReadinessScore(draft: IntakeDraft): number {
 
   const supplementary = [
     { filled: draft.title.length > 0, weight: 0.5 },
+    { filled: draft.acceptanceCriteria.length > 0, weight: 2 }, // Critical for build-readiness
     { filled: draft.userStories.length > 0, weight: 1 },
     { filled: draft.constraints.length > 0, weight: 0.5 },
     { filled: draft.trigger.length > 0, weight: 0.5 },

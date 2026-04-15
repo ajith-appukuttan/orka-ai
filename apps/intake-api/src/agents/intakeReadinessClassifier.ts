@@ -1,7 +1,9 @@
 import { query } from '../db/pool.js';
 import { classifyIntakeReadiness } from '../services/claude.js';
-import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/object-storage';
+import { createStorageClient, getArtifactBucket } from '@orka/object-storage';
+import { buildArtifactKey } from '@orka/object-storage';
 
+// ─── Types ─────────────────────────────────────────────
 export type IntakeDisposition =
   | 'RETURN_TO_INTAKE'
   | 'DIRECT_TO_BUILD'
@@ -34,13 +36,21 @@ export interface IntakeRunDecision {
   createdAt: string;
 }
 
-function runRuleBasedPrecheck(prd: Record<string, unknown>) {
-  const result: {
-    minClassification: IntakeDisposition | null;
-    signals: Partial<ClassificationSignals>;
-    blockingQuestions: string[];
-  } = { minClassification: null, signals: {}, blockingQuestions: [] };
+// ─── Rule-Based Precheck ───────────────────────────────
+interface PrecheckResult {
+  minClassification: IntakeDisposition | null;
+  signals: Partial<ClassificationSignals>;
+  blockingQuestions: string[];
+}
 
+function runRuleBasedPrecheck(prd: Record<string, unknown>): PrecheckResult {
+  const result: PrecheckResult = {
+    minClassification: null,
+    signals: {},
+    blockingQuestions: [],
+  };
+
+  // Check acceptance criteria — look in multiple places since PRDs store them differently
   const acceptanceCriteria = (prd.acceptanceCriteria as string[]) || [];
   const goals = (prd.goals as string[]) || [];
   const uiRequirements = (prd.uiRequirements as unknown[]) || [];
@@ -54,13 +64,20 @@ function runRuleBasedPrecheck(prd: Record<string, unknown>) {
       (r) => ((r as Record<string, unknown>).acceptanceCriteria as string[]) || [],
     ),
   ];
+
+  // Goals can serve as acceptance criteria if they are specific and testable
   const hasTestableGoals = goals.length > 0 && goals.some((g) => g.length > 20);
 
   if (allCriteria.length === 0 && !hasTestableGoals) {
+    // No acceptance criteria AND no testable goals — needs more work
+    // But don't force RETURN_TO_INTAKE — let Claude decide the severity
     result.minClassification = 'NEEDS_ELABORATION';
-    result.blockingQuestions.push('No formal acceptance criteria defined');
+    result.blockingQuestions.push(
+      'No formal acceptance criteria defined (goals may partially serve this purpose)',
+    );
   }
 
+  // Check open questions
   const openQuestions =
     (prd.openQuestions as string[]) || (prd.unresolvedQuestions as string[]) || [];
   if (openQuestions.length > 0) {
@@ -68,8 +85,10 @@ function runRuleBasedPrecheck(prd: Record<string, unknown>) {
     result.blockingQuestions.push(...openQuestions);
   }
 
+  // Check scope indicators — use user stories and UI requirements, NOT goals count
   const userStories = (prd.userStories as unknown[]) || [];
   const uiReqCount = uiRequirements.length + uiUxRequirements.length;
+
   if (userStories.length > 3 || uiReqCount > 3) {
     result.signals.scopeSize = 'LARGE';
     result.signals.taskDecompositionNeeded = true;
@@ -82,18 +101,17 @@ function runRuleBasedPrecheck(prd: Record<string, unknown>) {
     result.signals.scopeSize = 'SMALL';
   }
 
+  // Check problem statement
   const problemStatement = (prd.problemStatement as string) || '';
-  if (typeof problemStatement === 'string' && problemStatement.length < 20) {
-    const psObj = prd.problemStatement as Record<string, unknown> | undefined;
-    if (!psObj || !(psObj.what as string)?.length) {
-      result.blockingQuestions.push('Problem statement is missing or too vague');
-      result.minClassification = result.minClassification || 'RETURN_TO_INTAKE';
-    }
+  if (problemStatement.length < 20) {
+    result.blockingQuestions.push('Problem statement is missing or too vague');
+    result.minClassification = result.minClassification || 'RETURN_TO_INTAKE';
   }
 
   return result;
 }
 
+// ─── Main Classifier ───────────────────────────────────
 const storageClient = createStorageClient();
 
 export async function runIntakeReadinessClassifier(
@@ -106,7 +124,10 @@ export async function runIntakeReadinessClassifier(
   console.info(`Intake classifier: evaluating run ${runId}...`);
 
   try {
+    // Step 1: Rule-based precheck
     const precheck = runRuleBasedPrecheck(prdContent);
+
+    // Step 2: Claude classification
     const rawJson = await classifyIntakeReadiness(prdContent, precheck);
 
     let parsed: Record<string, unknown>;
@@ -121,6 +142,7 @@ export async function runIntakeReadinessClassifier(
       return null;
     }
 
+    // Step 3: Combine rule signals with Claude output
     let classification = (parsed.classification as IntakeDisposition) || 'NEEDS_ELABORATION';
     const buildReadinessScore = (parsed.buildReadinessScore as number) || 0.5;
     const confidence = (parsed.confidence as number) || 0.7;
@@ -135,6 +157,7 @@ export async function runIntakeReadinessClassifier(
       ...((parsed.blockingQuestions as string[]) || []),
     ];
 
+    // Rule override: if precheck found a higher severity classification, use it
     const severityOrder: IntakeDisposition[] = [
       'DIRECT_TO_BUILD',
       'NEEDS_PLANNING',
@@ -145,9 +168,12 @@ export async function runIntakeReadinessClassifier(
     if (precheck.minClassification) {
       const precheckSev = severityOrder.indexOf(precheck.minClassification);
       const claudeSev = severityOrder.indexOf(classification);
-      if (precheckSev > claudeSev) classification = precheck.minClassification;
+      if (precheckSev > claudeSev) {
+        classification = precheck.minClassification;
+      }
     }
 
+    // Step 4: Persist to object storage
     let objectKey: string | null = null;
     const bucket = getArtifactBucket();
     try {
@@ -160,33 +186,32 @@ export async function runIntakeReadinessClassifier(
         artifactType: 'CLASSIFICATION',
         version: 1,
       });
+
+      const classificationPayload = {
+        runId,
+        approvedArtifactId,
+        classification,
+        buildReadinessScore,
+        reasoningSummary,
+        signals,
+        requiredNextStages,
+        blockingQuestions,
+        confidence,
+        createdAt: new Date().toISOString(),
+      };
+
       await storageClient.putObject({
         bucket,
         key: objectKey,
-        body: Buffer.from(
-          JSON.stringify(
-            {
-              runId,
-              classification,
-              buildReadinessScore,
-              reasoningSummary,
-              signals,
-              requiredNextStages,
-              blockingQuestions,
-              confidence,
-              createdAt: new Date().toISOString(),
-            },
-            null,
-            2,
-          ),
-        ),
+        body: Buffer.from(JSON.stringify(classificationPayload, null, 2)),
         contentType: 'application/json',
         metadata: { runId, classification, tenantId },
       });
-    } catch {
-      /* non-fatal */
+    } catch (err) {
+      console.warn('Intake classifier: object storage write failed (non-fatal):', err);
     }
 
+    // Step 5: Persist to database
     const result = await query(
       `INSERT INTO intake_run_decisions
        (run_id, approved_artifact_id, intake_workspace_id, tenant_id,
@@ -211,12 +236,14 @@ export async function runIntakeReadinessClassifier(
       ],
     );
 
+    const row = result.rows[0];
+
     console.info(
       `Intake classifier: run ${runId} → ${classification} (readiness: ${buildReadinessScore}, confidence: ${confidence})`,
     );
 
     return {
-      id: result.rows[0].id,
+      id: row.id,
       runId,
       approvedArtifactId,
       classification,
@@ -227,7 +254,7 @@ export async function runIntakeReadinessClassifier(
       blockingQuestions,
       confidence,
       objectKey,
-      createdAt: result.rows[0].createdAt,
+      createdAt: row.createdAt,
     };
   } catch (err) {
     console.error('Intake classifier failed:', err);

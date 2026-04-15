@@ -26,31 +26,7 @@ const repoAnalyzerPrompt = loadPrompt('repo-analyzer.md');
 const intakeClassifierPrompt = loadPrompt('intake-readiness-classifier.md');
 
 /**
- * Classify an approved PRD for build readiness.
- */
-export async function classifyIntakeReadiness(
-  prd: Record<string, unknown>,
-  precheck: {
-    minClassification: string | null;
-    signals: Record<string, unknown>;
-    blockingQuestions: string[];
-  },
-): Promise<string> {
-  const userContent = `## Approved PRD\n\n\`\`\`json\n${JSON.stringify(prd, null, 2)}\n\`\`\`\n\n## Rule-Based Precheck\n\n${precheck.minClassification ? `Min classification: ${precheck.minClassification}` : 'No minimum set.'}\n${precheck.blockingQuestions.length > 0 ? `Blocking: ${precheck.blockingQuestions.join('; ')}` : ''}\n\nEvaluate and return classification JSON.`;
-
-  const response = await client.messages.create({
-    model: config.vertex.model,
-    max_tokens: 2048,
-    system: intakeClassifierPrompt,
-    messages: [{ role: 'user', content: userContent }],
-  });
-  const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
-  return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '{}';
-}
-
-/**
  * Generic prompt-based generation for builder agents.
- * Loads the prompt file dynamically (not cached at startup).
  */
 export async function generateWithPrompt(
   promptFile: string,
@@ -407,6 +383,44 @@ Analyze this repository and return the structured JSON. Focus on identifying UI 
     model: config.vertex.model,
     max_tokens: 4096,
     system: repoAnalyzerPrompt,
+    messages: [{ role: 'user', content: userContent }],
+  });
+
+  const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
+  return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '{}';
+}
+
+/**
+ * Classify an approved PRD for build readiness.
+ */
+export async function classifyIntakeReadiness(
+  prd: Record<string, unknown>,
+  precheck: {
+    minClassification: string | null;
+    signals: Record<string, unknown>;
+    blockingQuestions: string[];
+  },
+): Promise<string> {
+  const userContent = `## Approved PRD
+
+\`\`\`json
+${JSON.stringify(prd, null, 2)}
+\`\`\`
+
+## Rule-Based Precheck Results
+
+${precheck.minClassification ? `**Minimum classification from rules:** ${precheck.minClassification}` : 'No rule-based minimum set.'}
+
+${precheck.blockingQuestions.length > 0 ? `**Blocking questions identified:**\n${precheck.blockingQuestions.map((q) => `- ${q}`).join('\n')}` : 'No blocking questions from rules.'}
+
+${Object.keys(precheck.signals).length > 0 ? `**Rule signals:**\n\`\`\`json\n${JSON.stringify(precheck.signals, null, 2)}\n\`\`\`` : ''}
+
+Evaluate this PRD and return the classification JSON. Consider the precheck results but make your own independent assessment. Be conservative when uncertain.`;
+
+  const response = await client.messages.create({
+    model: config.vertex.model,
+    max_tokens: 2048,
+    system: intakeClassifierPrompt,
     messages: [{ role: 'user', content: userContent }],
   });
 

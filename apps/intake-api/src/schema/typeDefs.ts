@@ -218,23 +218,7 @@ export const typeDefs = `#graphql
     downloadUrl: String
   }
 
-  type AggregatedPRD {
-    title: String!
-    summary: String!
-    businessGoals: [String!]!
-    userStories: [String!]!
-    inScope: [String!]!
-    outOfScope: [String!]!
-    uiUxRequirements: JSON!
-    nonFunctionalRequirements: [String!]!
-    dependencies: [String!]!
-    risks: [String!]!
-    openQuestions: [String!]!
-    successMetrics: [String!]!
-    confidence: Float!
-  }
-
-  # ─── Intake Classification ──────────────────────────────
+  # ─── Intake Readiness Classification ──────────────────
   type IntakeClassification {
     id: ID!
     runId: String!
@@ -282,6 +266,22 @@ export const typeDefs = `#graphql
     reviewNotes: String
     startedAt: DateTime
     completedAt: DateTime
+  }
+
+  type AggregatedPRD {
+    title: String!
+    summary: String!
+    businessGoals: [String!]!
+    userStories: [String!]!
+    inScope: [String!]!
+    outOfScope: [String!]!
+    uiUxRequirements: JSON!
+    nonFunctionalRequirements: [String!]!
+    dependencies: [String!]!
+    risks: [String!]!
+    openQuestions: [String!]!
+    successMetrics: [String!]!
+    confidence: Float!
   }
 
   # ─── Streaming ─────────────────────────────────────────
