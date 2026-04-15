@@ -1,9 +1,17 @@
 import type { Job } from 'bullmq';
+import { Queue } from 'bullmq';
 
 import { runIntakeReadinessClassifier } from '../../../intake-api/src/agents/intakeReadinessClassifier.js';
 import { transitionWorkspace } from '../../../intake-api/src/services/pipelineTransition.js';
 import { query } from '../../../intake-api/src/db/pool.js';
 import { pubsub, EVENTS } from '../../../intake-api/src/pubsub/index.js';
+
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+function parseRedisUrl(url: string) {
+  const parsed = new URL(url);
+  return { host: parsed.hostname, port: parseInt(parsed.port || '6379', 10) };
+}
+const buildQueue = new Queue('orka-build', { connection: parseRedisUrl(REDIS_URL) });
 
 export interface ClassifyData {
   runId: string;
@@ -80,7 +88,6 @@ export async function processClassify(job: Job<ClassifyData>): Promise<void> {
 
   // If DIRECT_TO_BUILD, enqueue build job
   if (decision.classification === 'DIRECT_TO_BUILD') {
-    const { buildQueue } = await import('../../../intake-api/src/jobs/queues.js');
     const wsResult = await query(`SELECT repo_url FROM intake_workspaces WHERE id = $1`, [
       workspaceId,
     ]);
