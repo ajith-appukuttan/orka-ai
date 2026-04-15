@@ -17,6 +17,7 @@ import {
 import { planBuildTasks, type BuildTask } from './taskPlanner.js';
 import { generateCode } from './codeGenerator.js';
 import { reviewChanges } from './reviewer.js';
+import { generateTests } from './testGenerator.js';
 import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/object-storage';
 import { pubsub, EVENTS } from '../../pubsub/index.js';
 
@@ -206,6 +207,21 @@ export async function executeBuild(
             continue;
           }
           writeWorktreeFile(worktree.worktreePath, change.filePath, change.content);
+        }
+
+        // Generate tests
+        try {
+          const testResult = await generateTests(task, codeResult.changes, worktree.worktreePath);
+          if (testResult && testResult.testChanges.length > 0) {
+            for (const testChange of testResult.testChanges) {
+              writeWorktreeFile(worktree.worktreePath, testChange.filePath, testChange.content);
+            }
+            console.info(
+              `[Builder] Generated ${testResult.testChanges.length} test file(s) for ${task.id}`,
+            );
+          }
+        } catch (testErr) {
+          console.warn(`[Builder] Test generation failed for ${task.id} (non-fatal):`, testErr);
         }
 
         // Commit

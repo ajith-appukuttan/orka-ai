@@ -22,6 +22,7 @@ export const typeDefs = `#graphql
     latestDraft: IntakeDraftVersion
     readinessScore: Float
     repoAnalysis: RepositoryAnalysis
+    latestClassification: IntakeClassification
   }
 
   enum WorkspaceStatus {
@@ -233,6 +234,22 @@ export const typeDefs = `#graphql
     confidence: Float!
   }
 
+  # ─── Intake Classification ──────────────────────────────
+  type IntakeClassification {
+    id: ID!
+    runId: String!
+    approvedArtifactId: ID!
+    classification: String!
+    buildReadinessScore: Float!
+    reasoningSummary: String
+    signals: JSON!
+    requiredNextStages: [String!]!
+    blockingQuestions: [String!]!
+    confidence: Float!
+    objectKey: String
+    createdAt: DateTime!
+  }
+
   # ─── Build Runs ──────────────────────────────────────────
   type BuildRun {
     id: ID!
@@ -301,6 +318,10 @@ export const typeDefs = `#graphql
     codeTargetsForRequirement(requirementId: ID!): [CodeTarget!]!
 
     # Search
+    # Classification queries
+    intakeClassification(runId: String!): IntakeClassification
+    intakeClassifications(workspaceId: ID!): [IntakeClassification!]!
+
     # Build queries
     buildRun(runId: String!): BuildRun
     buildRuns(workspaceId: ID!): [BuildRun!]!

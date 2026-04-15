@@ -2,6 +2,9 @@ import crypto from 'node:crypto';
 import { query, getClient } from '../../db/pool.js';
 import { generateRunId } from '../../services/runId.js';
 import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/object-storage';
+import { runIntakeReadinessClassifier } from '../../agents/intakeReadinessClassifier.js';
+import { executeBuild } from '../../agents/builder/orchestrator.js';
+import { pubsub, EVENTS } from '../../pubsub/index.js';
 
 const storageClient = createStorageClient();
 
@@ -27,8 +30,11 @@ export const approvalResolvers = {
 
         const session = sessionResult.rows[0];
         if (!session) throw new Error(`Session ${sessionId} not found`);
-        if (session.status !== 'REVIEWING' && session.status !== 'ACTIVE') {
-          throw new Error(`Session must be in REVIEWING or ACTIVE state, got ${session.status}`);
+        const allowedStates = ['REVIEWING', 'ACTIVE', 'APPROVED'];
+        if (!allowedStates.includes(session.status)) {
+          throw new Error(
+            `Session must be in REVIEWING, ACTIVE, or APPROVED state, got ${session.status}`,
+          );
         }
 
         // 2. Get latest draft (workspace-scoped first, legacy fallback)
@@ -168,7 +174,105 @@ export const approvalResolvers = {
 
         console.info(`PRD approved: session=${sessionId}, run=${runId}, key=${objectKey}`);
 
-        return artifactResult.rows[0];
+        // Auto-trigger classifier + builder (non-blocking)
+        const artifactRow = artifactResult.rows[0];
+        const classifierTenantId = session.tenant_id || 'default';
+        const classifierWorkspaceId = session.workspace_id;
+        if (classifierWorkspaceId) {
+          runIntakeReadinessClassifier(
+            runId,
+            artifactRow.id,
+            classifierWorkspaceId,
+            classifierTenantId,
+            draftPayload as Record<string, unknown>,
+          )
+            .then(async (decision) => {
+              if (!decision) return;
+
+              // Post classifier message to chat
+              const classLabel: Record<string, string> = {
+                DIRECT_TO_BUILD: 'Ready for Build',
+                NEEDS_ELABORATION: 'Needs Elaboration',
+                NEEDS_PLANNING: 'Needs Planning',
+                NEEDS_ELABORATION_AND_PLANNING: 'Needs Elaboration & Planning',
+                RETURN_TO_INTAKE: 'Return to Intake',
+              };
+              const label = classLabel[decision.classification] || decision.classification;
+
+              let content = `## Intake Readiness: ${label}\n\n`;
+              content += `**Build Readiness Score:** ${Math.round(decision.buildReadinessScore * 100)}% | **Confidence:** ${Math.round(decision.confidence * 100)}%\n\n`;
+              content += `${decision.reasoningSummary}\n\n`;
+              if (decision.blockingQuestions.length > 0) {
+                content += `**Blocking Questions:**\n${decision.blockingQuestions.map((q) => `- ${q}`).join('\n')}\n\n`;
+              }
+              content += `**Next Stages:** ${decision.requiredNextStages.join(' → ')}\n\n`;
+              content += `---\n\n`;
+              content += `[Review Approved PRD](/review/${classifierWorkspaceId}/${sessionId})\n\n`;
+              content += `*Run ID: ${decision.runId}*`;
+
+              const msgResult = await query(
+                `INSERT INTO intake_messages (session_id, role, content)
+                 VALUES ($1, 'assistant', $2)
+                 RETURNING id, session_id as "sessionId", role, content,
+                           tool_calls as "toolCalls", created_at as "createdAt"`,
+                [sessionId, content],
+              );
+              if (msgResult.rows[0]) {
+                pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
+                  intakeMessageStream: msgResult.rows[0],
+                });
+              }
+
+              // Auto-trigger build if DIRECT_TO_BUILD
+              if (decision.classification === 'DIRECT_TO_BUILD') {
+                const wsResult = await query(
+                  `SELECT repo_url FROM intake_workspaces WHERE id = $1`,
+                  [classifierWorkspaceId],
+                );
+                const repoUrl = wsResult.rows[0]?.repo_url;
+                if (repoUrl) {
+                  console.info(`[Builder] Auto-triggering build for run ${runId}...`);
+
+                  // Post "starting build" message
+                  const buildStartMsg = await query(
+                    `INSERT INTO intake_messages (session_id, role, content)
+                     VALUES ($1, 'assistant', $2)
+                     RETURNING id, session_id as "sessionId", role, content,
+                               tool_calls as "toolCalls", created_at as "createdAt"`,
+                    [
+                      sessionId,
+                      `## Starting Build\n\nClassifier approved for **Direct to Build**. Initiating automated build pipeline...\n\n*Creating worktree, loading skills, planning tasks...*`,
+                    ],
+                  );
+                  if (buildStartMsg.rows[0]) {
+                    pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
+                      intakeMessageStream: buildStartMsg.rows[0],
+                    });
+                  }
+
+                  executeBuild(
+                    runId,
+                    classifierWorkspaceId,
+                    classifierTenantId,
+                    artifactRow.id,
+                    decision.id,
+                    draftPayload as Record<string, unknown>,
+                    repoUrl,
+                    sessionId,
+                  ).catch((buildErr) => {
+                    console.error('[Builder] Auto-triggered build failed:', buildErr);
+                  });
+                } else {
+                  console.info('[Builder] No repo URL configured — skipping auto-build');
+                }
+              }
+            })
+            .catch((err) => {
+              console.error('Intake classifier failed (non-blocking):', err);
+            });
+        }
+
+        return artifactRow;
       } catch (err) {
         await client.query('ROLLBACK');
         throw err;

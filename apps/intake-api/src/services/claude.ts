@@ -23,6 +23,30 @@ const summaryGeneratorPrompt = loadPrompt('summary-generator.md');
 const memoryCuratorPrompt = loadPrompt('memory-curator.md');
 const visualIntakePrompt = loadPrompt('visual-intake.md');
 const repoAnalyzerPrompt = loadPrompt('repo-analyzer.md');
+const intakeClassifierPrompt = loadPrompt('intake-readiness-classifier.md');
+
+/**
+ * Classify an approved PRD for build readiness.
+ */
+export async function classifyIntakeReadiness(
+  prd: Record<string, unknown>,
+  precheck: {
+    minClassification: string | null;
+    signals: Record<string, unknown>;
+    blockingQuestions: string[];
+  },
+): Promise<string> {
+  const userContent = `## Approved PRD\n\n\`\`\`json\n${JSON.stringify(prd, null, 2)}\n\`\`\`\n\n## Rule-Based Precheck\n\n${precheck.minClassification ? `Min classification: ${precheck.minClassification}` : 'No minimum set.'}\n${precheck.blockingQuestions.length > 0 ? `Blocking: ${precheck.blockingQuestions.join('; ')}` : ''}\n\nEvaluate and return classification JSON.`;
+
+  const response = await client.messages.create({
+    model: config.vertex.model,
+    max_tokens: 2048,
+    system: intakeClassifierPrompt,
+    messages: [{ role: 'user', content: userContent }],
+  });
+  const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
+  return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '{}';
+}
 
 /**
  * Generic prompt-based generation for builder agents.
