@@ -3,6 +3,7 @@ import { query, getClient } from '../../db/pool.js';
 import { generateRunId } from '../../services/runId.js';
 import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/object-storage';
 import { runIntakeReadinessClassifier } from '../../agents/intakeReadinessClassifier.js';
+import { executeBuild } from '../../agents/builder/orchestrator.js';
 import { pubsub, EVENTS } from '../../pubsub/index.js';
 
 const storageClient = createStorageClient();
@@ -237,6 +238,45 @@ export const approvalResolvers = {
                 pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
                   intakeMessageStream: msgResult.rows[0],
                 });
+              }
+
+              // Auto-trigger build if DIRECT_TO_BUILD
+              if (decision.classification === 'DIRECT_TO_BUILD') {
+                const wsResult = await query(
+                  `SELECT repo_url FROM intake_workspaces WHERE id = $1`,
+                  [classifierWorkspaceId],
+                );
+                const repoUrl = wsResult.rows[0]?.repo_url;
+                if (repoUrl) {
+                  console.info(`[Builder] Auto-triggering build for run ${runId}...`);
+                  const buildStartMsg = await query(
+                    `INSERT INTO intake_messages (session_id, role, content)
+                     VALUES ($1, 'assistant', $2)
+                     RETURNING id, session_id as "sessionId", role, content,
+                               tool_calls as "toolCalls", created_at as "createdAt"`,
+                    [
+                      sessionId,
+                      `## Starting Build\n\nClassifier approved for **Direct to Build**. Initiating automated build pipeline...\n\n*Creating worktree, loading skills, planning tasks...*`,
+                    ],
+                  );
+                  if (buildStartMsg.rows[0]) {
+                    pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
+                      intakeMessageStream: buildStartMsg.rows[0],
+                    });
+                  }
+                  executeBuild(
+                    runId,
+                    classifierWorkspaceId,
+                    classifierTenantId,
+                    artifactRow.id,
+                    decision.id,
+                    draftPayload as Record<string, unknown>,
+                    repoUrl,
+                    sessionId,
+                  ).catch((buildErr) => {
+                    console.error('[Builder] Auto-triggered build failed:', buildErr);
+                  });
+                }
               }
             })
             .catch((err) => {
