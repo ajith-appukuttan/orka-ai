@@ -1,14 +1,16 @@
 export const config = {
   port: parseInt(process.env.PORT || '4000', 10),
 
-  // Postgres
-  db: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432', 10),
-    database: process.env.DB_NAME || 'orka',
-    user: process.env.DB_USER || 'orka',
-    password: process.env.DB_PASSWORD || 'orka',
-  },
+  // Postgres — supports DATABASE_URL or individual vars
+  db: process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL }
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432', 10),
+        database: process.env.DB_NAME || 'orka',
+        user: process.env.DB_USER || 'orka',
+        password: process.env.DB_PASSWORD || 'orka',
+      },
 
   // Redis
   redis: {
