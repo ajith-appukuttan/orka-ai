@@ -46,7 +46,7 @@ const ANALYZE_REPO = gql`
 type IntakeMode = 'chat' | 'visual';
 
 const MIN_PANEL_WIDTH = 280;
-const SIDEBAR_WIDTH = 260;
+const SIDEBAR_WIDTH = 320;
 const TENANT_ID = 'default'; // TODO: from auth context
 
 export function IntakePage() {
