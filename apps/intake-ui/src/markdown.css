@@ -1,3 +1,9 @@
+.orka-markdown {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
 .orka-markdown h1,
 .orka-markdown h2,
 .orka-markdown h3,
@@ -23,6 +29,8 @@
 
 .orka-markdown p {
   margin: 0.5em 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .orka-markdown ul,
@@ -57,6 +65,9 @@
   border-radius: 8px;
   overflow-x: auto;
   margin: 0.5em 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-width: 100%;
 }
 
 [data-mantine-color-scheme='dark'] .orka-markdown pre {
