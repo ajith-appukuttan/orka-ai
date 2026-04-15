@@ -1,12 +1,22 @@
 import { Button, Group, Text } from '@mantine/core';
 
 interface ApprovalButtonProps {
-  onApprove: () => void;
+  onApprove?: () => void;
   isApproving: boolean;
   readyForReview: boolean;
 }
 
 export function ApprovalButton({ onApprove, isApproving, readyForReview }: ApprovalButtonProps) {
+  if (!onApprove) {
+    return (
+      <Group justify="flex-end">
+        <Text size="sm" c="teal" fw={500}>
+          Already approved
+        </Text>
+      </Group>
+    );
+  }
+
   return (
     <Group justify="flex-end" gap="md">
       {!readyForReview && (

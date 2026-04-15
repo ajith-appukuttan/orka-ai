@@ -58,7 +58,7 @@ async function start() {
   app.use(
     '/graphql',
     cors({ origin: config.corsOrigin }),
-    express.json(),
+    express.json({ limit: '10mb' }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expressMiddleware(server) as any,
   );

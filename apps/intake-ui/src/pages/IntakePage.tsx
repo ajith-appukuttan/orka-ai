@@ -6,6 +6,7 @@ import {
   ScrollArea,
   Text,
   ActionIcon,
+  Button,
   Tooltip,
   SegmentedControl,
 } from '@mantine/core';
@@ -45,7 +46,7 @@ const ANALYZE_REPO = gql`
 type IntakeMode = 'chat' | 'visual';
 
 const MIN_PANEL_WIDTH = 280;
-const SIDEBAR_WIDTH = 260;
+const SIDEBAR_WIDTH = 320;
 const TENANT_ID = 'default'; // TODO: from auth context
 
 export function IntakePage() {
@@ -471,7 +472,7 @@ export function IntakePage() {
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      background: '#10a37f',
+                      background: themedColor('accentGreen'),
                       flexShrink: 0,
                     }}
                   />
@@ -482,8 +483,11 @@ export function IntakePage() {
                     <Text
                       size="xs"
                       ff="monospace"
-                      c="dimmed"
-                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                      style={{
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        color: themedColor('textDimmed'),
+                      }}
                       onClick={() => {
                         if (activeSessionId) {
                           navigator.clipboard.writeText(activeSessionId);
@@ -504,8 +508,13 @@ export function IntakePage() {
                   ]}
                 />
               </Group>
-              <Tooltip label="Close session">
-                <ActionIcon size="xs" variant="subtle" color="gray" onClick={handleClearSession}>
+              <Button
+                size="xs"
+                radius="xl"
+                variant="subtle"
+                color="gray"
+                onClick={handleClearSession}
+                leftSection={
                   <svg
                     width="12"
                     height="12"
@@ -519,8 +528,10 @@ export function IntakePage() {
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                </ActionIcon>
-              </Tooltip>
+                }
+              >
+                Close
+              </Button>
             </Group>
 
             <ReadinessIndicator
@@ -540,9 +551,8 @@ export function IntakePage() {
             >
               {/* Chat panel — hidden when in visual mode */}
               <Box
+                flex={intakeMode === 'chat' ? 1 : undefined}
                 style={{
-                  width: intakeMode === 'chat' ? `${chatWidthPct}%` : undefined,
-                  minWidth: intakeMode === 'chat' ? MIN_PANEL_WIDTH : undefined,
                   overflow: 'hidden',
                   display: intakeMode === 'chat' ? undefined : 'none',
                 }}
@@ -553,14 +563,14 @@ export function IntakePage() {
                   isLoading={isSending}
                   isStreaming={isStreaming}
                   streamingContent={streamingContent}
+                  readinessScore={readinessScore}
                 />
               </Box>
 
               {/* Visual panel — hidden when in chat mode, keeps state alive */}
               <Box
+                flex={intakeMode === 'visual' ? 1 : undefined}
                 style={{
-                  width: intakeMode === 'visual' ? '60%' : undefined,
-                  minWidth: intakeMode === 'visual' ? MIN_PANEL_WIDTH : undefined,
                   overflow: 'hidden',
                   display: intakeMode === 'visual' ? undefined : 'none',
                 }}
@@ -580,111 +590,6 @@ export function IntakePage() {
                   onDoneVisual={handleDoneVisual}
                   requirements={visual.requirements}
                 />
-              </Box>
-
-              {/* Draft PRD panel — visible in both modes */}
-              {intakeMode === 'chat' && <ResizeHandle onResize={handleResize} />}
-              <Box
-                style={{
-                  width: intakeMode === 'chat' ? `${prdWidthPct}%` : '40%',
-                  minWidth: MIN_PANEL_WIDTH,
-                  flexShrink: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                  background: themedColor('prdBg'),
-                }}
-              >
-                <Box
-                  px="md"
-                  py="xs"
-                  style={{
-                    borderBottom: `1px solid ${themedColor('prdBorder')}`,
-                    flexShrink: 0,
-                  }}
-                >
-                  <Group justify="space-between" align="center">
-                    <Group gap={6}>
-                      <Box
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          background: themedColor('prdGreen'),
-                          boxShadow: `0 0 6px ${themedColor('prdGreen')}`,
-                        }}
-                      />
-                      <Text
-                        size="xs"
-                        fw={700}
-                        ff="monospace"
-                        tt="uppercase"
-                        style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
-                      >
-                        Intake PRD
-                      </Text>
-                    </Group>
-                    <Text ff="monospace" size="xs" style={{ color: themedColor('prdTextDimmed') }}>
-                      live
-                    </Text>
-                  </Group>
-                </Box>
-
-                <ScrollArea flex={1} scrollbarSize={6}>
-                  <DraftSidePanel draft={draft} readinessScore={readinessScore} />
-
-                  {/* Memory Items */}
-                  {memoryItems.length > 0 && (
-                    <Box px="md" py="sm">
-                      <Group gap="sm" align="center" mb="sm">
-                        <Text
-                          size="xs"
-                          ff="monospace"
-                          fw={700}
-                          tt="uppercase"
-                          style={{ color: themedColor('prdAccent'), letterSpacing: '0.08em' }}
-                        >
-                          Project Memory
-                        </Text>
-                        <Box flex={1} style={{ height: 1, background: themedColor('prdBorder') }} />
-                        <Text
-                          ff="monospace"
-                          size="xs"
-                          style={{ color: themedColor('prdTextDimmed'), fontSize: 10 }}
-                        >
-                          {memoryItems.length} items
-                        </Text>
-                      </Group>
-                      <MemoryPanel items={memoryItems} onArchive={archiveMemory} />
-                    </Box>
-                  )}
-
-                  {/* Visual Requirements */}
-                  {visual.requirements.length > 0 && (
-                    <Box px="md" py="sm">
-                      <Group gap="sm" align="center" mb="sm">
-                        <Text
-                          size="xs"
-                          ff="monospace"
-                          fw={700}
-                          tt="uppercase"
-                          style={{ color: themedColor('prdAccent'), letterSpacing: '0.08em' }}
-                        >
-                          UI Requirements
-                        </Text>
-                        <Box flex={1} style={{ height: 1, background: themedColor('prdBorder') }} />
-                        <Text
-                          ff="monospace"
-                          size="xs"
-                          style={{ color: themedColor('prdTextDimmed'), fontSize: 10 }}
-                        >
-                          {visual.requirements.length} items
-                        </Text>
-                      </Group>
-                      <VisualRequirementsList requirements={visual.requirements} />
-                    </Box>
-                  )}
-                </ScrollArea>
               </Box>
             </Group>
           </Stack>

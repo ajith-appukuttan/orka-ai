@@ -1,17 +1,30 @@
 import { Box, Text } from '@mantine/core';
 import Markdown from 'react-markdown';
+import { useTheme } from '../../hooks/useTheme';
 
 interface StreamingMessageProps {
   content: string;
 }
 
 export function StreamingMessage({ content }: StreamingMessageProps) {
+  const { themedColor } = useTheme();
+
   return (
     <Box flex={1} pt={2}>
-      <Text size="xs" fw={600} mb={4}>
+      <Text
+        size="xs"
+        fw={700}
+        mb={4}
+        ff="monospace"
+        tt="uppercase"
+        style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
+      >
         Virtual PM
       </Text>
-      <Box className="orka-markdown" style={{ fontSize: 14, lineHeight: 1.7 }}>
+      <Box
+        className="orka-markdown"
+        style={{ fontSize: 14, lineHeight: 1.7, color: themedColor('chatText') }}
+      >
         <Markdown>{content}</Markdown>
         <Box
           component="span"

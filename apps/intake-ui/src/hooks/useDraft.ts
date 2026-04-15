@@ -34,6 +34,7 @@ function normalizeDraft(raw: any): IntakeDraft {
         ? raw.outOfScope
         : [],
     userStories: Array.isArray(raw.userStories) ? raw.userStories : [],
+    acceptanceCriteria: Array.isArray(raw.acceptanceCriteria) ? raw.acceptanceCriteria : [],
     constraints: Array.isArray(raw.constraints) ? raw.constraints : [],
     openQuestions: Array.isArray(raw.openQuestions)
       ? raw.openQuestions
@@ -60,6 +61,7 @@ function createEmptyDraft(): IntakeDraft {
     goals: [],
     nonGoals: [],
     userStories: [],
+    acceptanceCriteria: [],
     constraints: [],
     openQuestions: [],
     currentState: { description: '', artifacts: [] },
@@ -72,16 +74,18 @@ function createEmptyDraft(): IntakeDraft {
 
 export function useDraft(sessionId: string | undefined, workspaceId?: string | undefined) {
   // Workspace-scoped draft query (preferred)
-  const { data: wsData } = useQuery(GET_LATEST_DRAFT, {
+  const { data: wsData, loading: wsLoading } = useQuery(GET_LATEST_DRAFT, {
     variables: { workspaceId },
     skip: !workspaceId,
   });
 
   // Legacy session-scoped draft query (fallback)
-  const { data: legacyData, loading } = useQuery(GET_DRAFT, {
+  const { data: legacyData, loading: legacyLoading } = useQuery(GET_DRAFT, {
     variables: { sessionId },
     skip: !sessionId || !!workspaceId,
   });
+
+  const loading = workspaceId ? wsLoading : legacyLoading;
 
   const [editDraft, { loading: editing }] = useMutation(EDIT_DRAFT);
   const [approveDraft, { loading: approving }] = useMutation(APPROVE_DRAFT);
@@ -99,12 +103,6 @@ export function useDraft(sessionId: string | undefined, workspaceId?: string | u
           query: GET_LATEST_DRAFT,
           variables: { workspaceId },
           data: { intakeLatestDraft: updated },
-        });
-      } else if (sessionId) {
-        client.writeQuery({
-          query: GET_DRAFT,
-          variables: { sessionId },
-          data: { intakeDraft: updated },
         });
       }
     },

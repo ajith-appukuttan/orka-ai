@@ -135,6 +135,7 @@ const THINKING_STEPS: Record<string, string[]> = {
 
 function ThinkingAnimation({ operation }: { operation: string }) {
   const [stepIndex, setStepIndex] = useState(0);
+  const { themedColor } = useTheme();
   const steps = THINKING_STEPS[operation] || ['Working on it...'];
 
   useEffect(() => {
@@ -153,11 +154,11 @@ function ThinkingAnimation({ operation }: { operation: string }) {
             height: 18,
             borderRadius: '50%',
             border: '2px solid transparent',
-            borderTopColor: '#10a37f',
+            borderTopColor: themedColor('accentGreen'),
             animation: 'orka-spin 0.8s linear infinite',
           }}
         />
-        <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
+        <Text size="sm" style={{ fontStyle: 'italic', color: themedColor('textDimmed') }}>
           {steps[stepIndex]}
         </Text>
       </Group>
@@ -171,7 +172,7 @@ function ThinkingAnimation({ operation }: { operation: string }) {
               width: 6,
               height: 6,
               borderRadius: '50%',
-              background: i <= stepIndex ? '#10a37f' : 'var(--mantine-color-gray-4)',
+              background: i <= stepIndex ? themedColor('accentGreen') : themedColor('cardBorder'),
               transition: 'background 300ms ease',
             }}
           />
@@ -190,7 +191,11 @@ function ThinkingAnimation({ operation }: { operation: string }) {
 
 // ─── Avatar ────────────────────────────────────────────
 function Avatar({ role }: { role: string }) {
-  const bg = role === 'user' ? '#5436DA' : 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)';
+  const { themedColor: tc } = useTheme();
+  const bg =
+    role === 'user'
+      ? tc('accentPurple')
+      : `linear-gradient(135deg, ${tc('accentGreenGradientFrom')} 0%, ${tc('accentGreenGradientTo')} 100%)`;
   const letter = role === 'user' ? 'U' : 'V';
 
   return (
@@ -203,7 +208,7 @@ function Avatar({ role }: { role: string }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: 'white',
+        color: tc('avatarText'),
         fontSize: 12,
         fontWeight: role === 'user' ? 600 : 700,
         flexShrink: 0,
@@ -523,7 +528,7 @@ export function VisualIntakePanel({
                     ? 'Launching...'
                     : 'Idle'}
             </Badge>
-            <Text size="xs" c="dimmed" truncate style={{ maxWidth: 300 }}>
+            <Text size="xs" truncate style={{ maxWidth: 300, color: themedColor('textDimmed') }}>
               {session.url}
             </Text>
             {requirements.length > 0 && (
@@ -593,7 +598,14 @@ export function VisualIntakePanel({
                 >
                   <Avatar role={msg.role} />
                   <Box flex={1} pt={2}>
-                    <Text size="xs" fw={600} mb={4}>
+                    <Text
+                      size="xs"
+                      fw={700}
+                      mb={4}
+                      ff="monospace"
+                      tt="uppercase"
+                      style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
+                    >
                       {msg.role === 'user' ? 'You' : 'Virtual PM'}
                     </Text>
 
@@ -606,7 +618,7 @@ export function VisualIntakePanel({
                           radius="sm"
                           mah={200}
                           fit="contain"
-                          style={{ border: '1px solid var(--mantine-color-gray-3)' }}
+                          style={{ border: `1px solid ${themedColor('cardBorder')}` }}
                         />
                       </Box>
                     )}
@@ -626,7 +638,14 @@ export function VisualIntakePanel({
                     )}
 
                     {/* Message content */}
-                    <Box className="orka-markdown" style={{ fontSize: 14, lineHeight: 1.7 }}>
+                    <Box
+                      className="orka-markdown"
+                      style={{
+                        fontSize: 14,
+                        lineHeight: 1.7,
+                        color: themedColor('chatText'),
+                      }}
+                    >
                       <Markdown>{msg.content}</Markdown>
                     </Box>
 
@@ -729,7 +748,13 @@ export function VisualIntakePanel({
             </Paper>
           )}
 
-          <Text size="xs" c="dimmed" ta="center" mt={8}>
+          <Text
+            size="xs"
+            ta="center"
+            mt={8}
+            ff="monospace"
+            style={{ color: themedColor('chatTextDimmed') }}
+          >
             Virtual PM can make mistakes. Review the generated requirements carefully.
           </Text>
         </Box>
