@@ -2,6 +2,31 @@ import { generateWithPrompt } from '../../services/claude.js';
 import { readWorktreeFile } from '../../services/worktreeManager.js';
 import type { BuildTask } from './taskPlanner.js';
 
+/**
+ * Extract JSON from an LLM response that may contain markdown fences,
+ * leading prose, or trailing commentary around the actual JSON object.
+ */
+function extractJson(raw: string): string {
+  // 1. Try to extract from ```json ... ``` fences (handles multiline)
+  const fenceMatch = raw.match(/```json?\s*\n?([\s\S]*?)```/i);
+  if (fenceMatch) {
+    return fenceMatch[1].trim();
+  }
+
+  // 2. Try to find a top-level JSON object { ... } in the response
+  const firstBrace = raw.indexOf('{');
+  const lastBrace = raw.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    return raw.substring(firstBrace, lastBrace + 1);
+  }
+
+  // 3. Fallback: strip simple leading/trailing fences and return as-is
+  return raw
+    .replace(/^```json?\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim();
+}
+
 export interface FileChange {
   filePath: string;
   action: 'CREATE' | 'MODIFY' | 'DELETE';
@@ -60,11 +85,7 @@ Implement this task. Return JSON with file changes only.`;
   const rawJson = await generateWithPrompt('builder-code-generator.md', userContent, 8192);
 
   try {
-    const cleaned = rawJson
-      .replace(/^```json?\s*/i, '')
-      .replace(/```\s*$/i, '')
-      .trim();
-    const result = JSON.parse(cleaned) as CodeGenResult;
+    const result = JSON.parse(extractJson(rawJson)) as CodeGenResult;
 
     return {
       changes: (result.changes || []).map((c) => ({

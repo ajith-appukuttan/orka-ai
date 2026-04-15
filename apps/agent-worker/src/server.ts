@@ -3,6 +3,7 @@ import { processChatTurn } from './processors/chatTurn.js';
 import { processClassify } from './processors/classify.js';
 import { processBuild } from './processors/build.js';
 import { processRepoAnalyze } from './processors/repoAnalyze.js';
+import { reconcileStaleRuns } from './reconcile.js';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -63,6 +64,11 @@ console.info('  Classifier:    concurrency 2');
 console.info('  Builder:       concurrency 1');
 console.info('  Repo analyze:  concurrency 2');
 console.info(`  Redis: ${REDIS_URL}`);
+
+// Reconcile any builds left in RUNNING/INITIALIZING state from a prior crash
+reconcileStaleRuns().catch((err) => {
+  console.error('[Reconcile] Failed to reconcile stale runs:', err);
+});
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
