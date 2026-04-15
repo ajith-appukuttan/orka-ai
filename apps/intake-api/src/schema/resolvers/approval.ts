@@ -213,8 +213,10 @@ export const approvalResolvers = {
                 content += `**Blocking Questions:**\n${decision.blockingQuestions.map((q) => `- ${q}`).join('\n')}\n\n`;
               }
 
-              content += `**Next Stages:** ${decision.requiredNextStages.join(' → ')}\n`;
-              content += `\n*Run ID: ${decision.runId}*`;
+              content += `**Next Stages:** ${decision.requiredNextStages.join(' → ')}\n\n`;
+              content += `---\n\n`;
+              content += `[Review Approved PRD](/review/${classifierWorkspaceId}/${sessionId})\n\n`;
+              content += `*Run ID: ${decision.runId}*`;
 
               // Persist as a system message in the chat
               const msgResult = await query(

@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { ScrollArea, Stack, Group, Text, Box, Loader, Button } from '@mantine/core';
 import Markdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 import { StreamingMessage } from './StreamingMessage';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -93,6 +94,45 @@ export function MessageList({
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { contentMaxWidth, themedColor } = useTheme();
+  const navigate = useNavigate();
+
+  // Custom link renderer: internal links use React Router, external open in new tab
+  const linkRenderer = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (props: any) => {
+      const { href, children } = props;
+      if (href && href.startsWith('/')) {
+        return (
+          <a
+            href={href}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(href);
+            }}
+            style={{
+              color: themedColor('chatAccent'),
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            {children}
+          </a>
+        );
+      }
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: themedColor('chatAccent') }}
+        >
+          {children}
+        </a>
+      );
+    },
+    [navigate, themedColor],
+  );
 
   // Auto-scroll to bottom on new messages, streaming, and loading changes
   useEffect(() => {
@@ -149,7 +189,7 @@ export function MessageList({
                       color: themedColor('chatText'),
                     }}
                   >
-                    <Markdown>{msg.content}</Markdown>
+                    <Markdown components={{ a: linkRenderer }}>{msg.content}</Markdown>
                   </Box>
 
                   {/* Quick reply buttons for options */}
