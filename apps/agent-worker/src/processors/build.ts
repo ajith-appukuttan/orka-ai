@@ -43,7 +43,7 @@ export async function processBuild(job: Job<BuildData>): Promise<void> {
     });
   }
 
-  // Run the build
+  // Run the build (pass job for lock extension via updateProgress)
   await executeBuild(
     runId,
     workspaceId,
@@ -53,5 +53,6 @@ export async function processBuild(job: Job<BuildData>): Promise<void> {
     prd,
     repoUrl,
     sessionId,
+    job,
   );
 }
