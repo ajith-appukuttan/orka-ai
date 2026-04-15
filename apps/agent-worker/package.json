@@ -1,0 +1,25 @@
+{
+  "name": "@orka/agent-worker",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@orka/draft-schema": "workspace:*",
+    "@orka/object-storage": "workspace:*",
+    "@orka/shared-types": "workspace:*",
+    "@anthropic-ai/vertex-sdk": "^0.16.0",
+    "bullmq": "^5.34.0",
+    "pg": "^8.13.0",
+    "simple-git": "^3.36.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.11",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

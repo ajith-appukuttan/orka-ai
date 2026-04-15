@@ -27,8 +27,13 @@ export const typeDefs = `#graphql
 
   enum WorkspaceStatus {
     ACTIVE
-    REVIEWING
     APPROVED
+    CLASSIFYING
+    ELABORATING
+    PLANNING
+    BUILDING
+    BUILT
+    FAILED
     ARCHIVED
   }
 
@@ -88,6 +93,7 @@ export const typeDefs = `#graphql
     sessionId: ID!
     role: MessageRole!
     content: String!
+    persona: String
     toolCalls: JSON
     createdAt: DateTime!
   }

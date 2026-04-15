@@ -20,6 +20,7 @@ import { reviewChanges } from './reviewer.js';
 import { generateTests } from './testGenerator.js';
 import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/object-storage';
 import { pubsub, EVENTS } from '../../pubsub/index.js';
+import { transitionWorkspace } from '../../services/pipelineTransition.js';
 
 const storageClient = createStorageClient();
 
@@ -184,7 +185,25 @@ export async function executeBuild(
           skillsPrompt,
         );
         if (!codeResult || codeResult.changes.length === 0) {
-          throw new Error('Code generator produced no changes');
+          // No changes needed — mark as success (verification/read-only tasks)
+          console.info(`[Builder] Task ${task.id}: no changes needed (verification task)`);
+          completedCount++;
+          await query(
+            `UPDATE build_tasks SET status = 'SUCCESS', commit_message = 'No changes needed (verification)',
+             completed_at = NOW() WHERE build_run_id = $1 AND task_index = $2`,
+            [buildRunId, tasks.indexOf(task)],
+          );
+          await query(
+            `UPDATE build_runs SET completed_tasks = $1, updated_at = NOW() WHERE id = $2`,
+            [completedCount, buildRunId],
+          );
+          executionLog.push({
+            step: 'task_completed',
+            taskId: task.id,
+            noChanges: true,
+            timestamp: new Date().toISOString(),
+          });
+          continue;
         }
 
         // Read originals for review
@@ -381,9 +400,9 @@ export async function executeBuild(
       chatContent += `\n*Run ID: ${runId}*`;
 
       const msgResult = await query(
-        `INSERT INTO intake_messages (session_id, role, content)
-         VALUES ($1, 'assistant', $2)
-         RETURNING id, session_id as "sessionId", role, content,
+        `INSERT INTO intake_messages (session_id, role, content, persona)
+         VALUES ($1, 'assistant', $2, 'Virtual Builder')
+         RETURNING id, session_id as "sessionId", role, content, persona,
                    tool_calls as "toolCalls", created_at as "createdAt"`,
         [sessionId, chatContent],
       );
@@ -396,6 +415,15 @@ export async function executeBuild(
     }
 
     console.info(`[Builder] Build complete: ${summary}`);
+
+    // Transition workspace: BUILDING → BUILT or FAILED
+    await transitionWorkspace(
+      workspaceId,
+      status === 'FAILED' ? 'FAILED' : 'BUILT',
+      'builder',
+      runId,
+      { completedTasks: completedCount, failedTasks: failedCount, prUrl },
+    );
 
     return {
       id: buildRunId,
@@ -417,6 +445,8 @@ export async function executeBuild(
        WHERE id = $2`,
       [`Build failed: ${errMsg}`, buildRunId],
     );
+
+    await transitionWorkspace(workspaceId, 'FAILED', 'builder', runId, { error: errMsg });
 
     return null;
   }

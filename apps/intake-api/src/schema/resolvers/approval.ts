@@ -5,6 +5,10 @@ import { createStorageClient, getArtifactBucket, buildArtifactKey } from '@orka/
 import { runIntakeReadinessClassifier } from '../../agents/intakeReadinessClassifier.js';
 import { executeBuild } from '../../agents/builder/orchestrator.js';
 import { pubsub, EVENTS } from '../../pubsub/index.js';
+import { transitionWorkspace } from '../../services/pipelineTransition.js';
+import { classifyQueue, buildQueue } from '../../jobs/queues.js';
+
+const USE_WORKER = process.env.USE_WORKER === 'true';
 
 const storageClient = createStorageClient();
 
@@ -68,6 +72,22 @@ export const approvalResolvers = {
         }
 
         if (!draftPayload) throw new Error('No draft found for session');
+
+        // Clear open questions when re-approving from ELABORATING
+        // The user explicitly clicked re-approve, signaling questions are resolved
+        if (session.status === 'APPROVED' || session.status === 'ELABORATING') {
+          const wsStatus = await client.query(
+            'SELECT status FROM intake_workspaces WHERE id = $1',
+            [session.workspace_id],
+          );
+          if (wsStatus.rows[0]?.status === 'ELABORATING') {
+            const draft = draftPayload as Record<string, unknown>;
+            draft.openQuestions = [];
+            draft.unresolvedQuestions = [];
+            draftPayload = draft;
+            console.info('[Approval] Cleared open questions for re-approval from ELABORATING');
+          }
+        }
 
         // 3. Generate run ID
         const runId = await generateRunId();
@@ -146,16 +166,19 @@ export const approvalResolvers = {
           ],
         );
 
-        // 7. Also keep legacy record for backward compat
-        await client
-          .query(
+        // 7. Also keep legacy record for backward compat (savepoint to avoid aborting transaction)
+        try {
+          await client.query('SAVEPOINT legacy_artifact');
+          await client.query(
             `INSERT INTO approved_intake_artifacts (session_id, version, artifact, approved_by)
-           VALUES ($1, $2, $3, $4)`,
+             VALUES ($1, $2, $3, $4)`,
             [sessionId, draftVersion, artifactJson, approvedBy],
-          )
-          .catch(() => {
-            /* ignore if table doesn't exist */
-          });
+          );
+          await client.query('RELEASE SAVEPOINT legacy_artifact');
+        } catch {
+          await client.query('ROLLBACK TO SAVEPOINT legacy_artifact');
+          /* ignore if table doesn't exist or insert fails */
+        }
 
         // 8. Update session and workspace status
         await client.query(
@@ -181,107 +204,145 @@ export const approvalResolvers = {
         const classifierTenantId = session.tenant_id || 'default';
         const classifierWorkspaceId = session.workspace_id;
         if (classifierWorkspaceId) {
-          runIntakeReadinessClassifier(
-            runId,
-            artifactRow.id,
-            classifierWorkspaceId,
-            classifierTenantId,
-            draftPayload as Record<string, unknown>,
-          )
-            .then(async (decision) => {
-              if (!decision) return;
+          // Transition: APPROVED → CLASSIFYING
+          transitionWorkspace(classifierWorkspaceId, 'CLASSIFYING', 'approval', runId).catch(
+            () => {},
+          );
 
-              // Build a human-readable classification message
-              const classLabel: Record<string, string> = {
-                DIRECT_TO_BUILD: 'Ready for Build',
-                NEEDS_ELABORATION: 'Needs Elaboration',
-                NEEDS_PLANNING: 'Needs Planning',
-                NEEDS_ELABORATION_AND_PLANNING: 'Needs Elaboration & Planning',
-                RETURN_TO_INTAKE: 'Return to Intake',
-              };
+          if (USE_WORKER) {
+            // Enqueue to BullMQ worker
+            classifyQueue
+              .add('classify', {
+                runId,
+                approvedArtifactId: artifactRow.id,
+                workspaceId: classifierWorkspaceId,
+                tenantId: classifierTenantId,
+                sessionId,
+                prd: draftPayload as Record<string, unknown>,
+              })
+              .catch((err) => {
+                console.error('Failed to enqueue classify job:', err);
+              });
+          } else {
+            // In-process fallback
+            runIntakeReadinessClassifier(
+              runId,
+              artifactRow.id,
+              classifierWorkspaceId,
+              classifierTenantId,
+              draftPayload as Record<string, unknown>,
+            )
+              .then(async (decision) => {
+                if (!decision) return;
 
-              const emoji: Record<string, string> = {
-                DIRECT_TO_BUILD: '',
-                NEEDS_ELABORATION: '',
-                NEEDS_PLANNING: '',
-                NEEDS_ELABORATION_AND_PLANNING: '',
-                RETURN_TO_INTAKE: '',
-              };
+                // Build a human-readable classification message
+                const classLabel: Record<string, string> = {
+                  DIRECT_TO_BUILD: 'Ready for Build',
+                  NEEDS_ELABORATION: 'Needs Elaboration',
+                  NEEDS_PLANNING: 'Needs Planning',
+                  NEEDS_ELABORATION_AND_PLANNING: 'Needs Elaboration & Planning',
+                  RETURN_TO_INTAKE: 'Return to Intake',
+                };
 
-              const label = classLabel[decision.classification] || decision.classification;
-              const icon = emoji[decision.classification] || '';
+                const emoji: Record<string, string> = {
+                  DIRECT_TO_BUILD: '',
+                  NEEDS_ELABORATION: '',
+                  NEEDS_PLANNING: '',
+                  NEEDS_ELABORATION_AND_PLANNING: '',
+                  RETURN_TO_INTAKE: '',
+                };
 
-              let content = `## ${icon} Intake Readiness: ${label}\n\n`;
-              content += `**Build Readiness Score:** ${Math.round(decision.buildReadinessScore * 100)}% | **Confidence:** ${Math.round(decision.confidence * 100)}%\n\n`;
-              content += `${decision.reasoningSummary}\n\n`;
+                const label = classLabel[decision.classification] || decision.classification;
+                const icon = emoji[decision.classification] || '';
 
-              if (decision.blockingQuestions.length > 0) {
-                content += `**Blocking Questions:**\n${decision.blockingQuestions.map((q) => `- ${q}`).join('\n')}\n\n`;
-              }
+                let content = `## ${icon} Intake Readiness: ${label}\n\n`;
+                content += `**Build Readiness Score:** ${Math.round(decision.buildReadinessScore * 100)}% | **Confidence:** ${Math.round(decision.confidence * 100)}%\n\n`;
+                content += `${decision.reasoningSummary}\n\n`;
 
-              content += `**Next Stages:** ${decision.requiredNextStages.join(' → ')}\n\n`;
-              content += `---\n\n`;
-              content += `[Review Approved PRD](/review/${classifierWorkspaceId}/${sessionId})\n\n`;
-              content += `*Run ID: ${decision.runId}*`;
+                if (decision.blockingQuestions.length > 0) {
+                  content += `**Blocking Questions:**\n${decision.blockingQuestions.map((q) => `- ${q}`).join('\n')}\n\n`;
+                }
 
-              // Persist as a system message in the chat
-              const msgResult = await query(
-                `INSERT INTO intake_messages (session_id, role, content)
-               VALUES ($1, 'assistant', $2)
-               RETURNING id, session_id as "sessionId", role, content,
+                content += `**Next Stages:** ${decision.requiredNextStages.join(' → ')}\n\n`;
+                content += `---\n\n`;
+                content += `[Review Approved PRD](/review/${classifierWorkspaceId}/${sessionId})\n\n`;
+                content += `*Run ID: ${decision.runId}*`;
+
+                // Persist as a system message in the chat
+                const msgResult = await query(
+                  `INSERT INTO intake_messages (session_id, role, content, persona)
+               VALUES ($1, 'assistant', $2, 'Virtual Classifier')
+               RETURNING id, session_id as "sessionId", role, content, persona,
                          tool_calls as "toolCalls", created_at as "createdAt"`,
-                [sessionId, content],
-              );
-
-              // Publish via subscription so the UI picks it up
-              if (msgResult.rows[0]) {
-                pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
-                  intakeMessageStream: msgResult.rows[0],
-                });
-              }
-
-              // Auto-trigger build if DIRECT_TO_BUILD
-              if (decision.classification === 'DIRECT_TO_BUILD') {
-                const wsResult = await query(
-                  `SELECT repo_url FROM intake_workspaces WHERE id = $1`,
-                  [classifierWorkspaceId],
+                  [sessionId, content],
                 );
-                const repoUrl = wsResult.rows[0]?.repo_url;
-                if (repoUrl) {
-                  console.info(`[Builder] Auto-triggering build for run ${runId}...`);
-                  const buildStartMsg = await query(
-                    `INSERT INTO intake_messages (session_id, role, content)
-                     VALUES ($1, 'assistant', $2)
-                     RETURNING id, session_id as "sessionId", role, content,
-                               tool_calls as "toolCalls", created_at as "createdAt"`,
-                    [
-                      sessionId,
-                      `## Starting Build\n\nClassifier approved for **Direct to Build**. Initiating automated build pipeline...\n\n*Creating worktree, loading skills, planning tasks...*`,
-                    ],
-                  );
-                  if (buildStartMsg.rows[0]) {
-                    pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
-                      intakeMessageStream: buildStartMsg.rows[0],
-                    });
-                  }
-                  executeBuild(
-                    runId,
-                    classifierWorkspaceId,
-                    classifierTenantId,
-                    artifactRow.id,
-                    decision.id,
-                    draftPayload as Record<string, unknown>,
-                    repoUrl,
-                    sessionId,
-                  ).catch((buildErr) => {
-                    console.error('[Builder] Auto-triggered build failed:', buildErr);
+
+                // Publish via subscription so the UI picks it up
+                if (msgResult.rows[0]) {
+                  pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
+                    intakeMessageStream: msgResult.rows[0],
                   });
                 }
-              }
-            })
-            .catch((err) => {
-              console.error('Intake classifier failed (non-blocking):', err);
-            });
+
+                // Route based on classification
+                const routeMap: Record<string, string> = {
+                  DIRECT_TO_BUILD: 'BUILDING',
+                  NEEDS_ELABORATION: 'ELABORATING',
+                  NEEDS_PLANNING: 'PLANNING',
+                  NEEDS_ELABORATION_AND_PLANNING: 'ELABORATING',
+                  RETURN_TO_INTAKE: 'ACTIVE',
+                };
+                const nextStatus = routeMap[decision.classification] || 'APPROVED';
+                await transitionWorkspace(classifierWorkspaceId, nextStatus, 'classifier', runId, {
+                  classification: decision.classification,
+                });
+
+                // Auto-trigger build if DIRECT_TO_BUILD
+                if (decision.classification === 'DIRECT_TO_BUILD') {
+                  const wsResult = await query(
+                    `SELECT repo_url FROM intake_workspaces WHERE id = $1`,
+                    [classifierWorkspaceId],
+                  );
+                  const repoUrl = wsResult.rows[0]?.repo_url;
+                  if (repoUrl) {
+                    console.info(`[Builder] Auto-triggering build for run ${runId}...`);
+                    const buildStartMsg = await query(
+                      `INSERT INTO intake_messages (session_id, role, content, persona)
+                     VALUES ($1, 'assistant', $2, 'Virtual Builder')
+                     RETURNING id, session_id as "sessionId", role, content, persona,
+                               tool_calls as "toolCalls", created_at as "createdAt"`,
+                      [
+                        sessionId,
+                        `Build is now in progress. You'll be notified here when it's complete.`,
+                      ],
+                    );
+                    if (buildStartMsg.rows[0]) {
+                      pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
+                        intakeMessageStream: buildStartMsg.rows[0],
+                      });
+                    }
+                    executeBuild(
+                      runId,
+                      classifierWorkspaceId,
+                      classifierTenantId,
+                      artifactRow.id,
+                      decision.id,
+                      draftPayload as Record<string, unknown>,
+                      repoUrl,
+                      sessionId,
+                    ).catch((buildErr) => {
+                      console.error('[Builder] Auto-triggered build failed:', buildErr);
+                      transitionWorkspace(classifierWorkspaceId, 'FAILED', 'builder', runId, {
+                        error: String(buildErr),
+                      }).catch(() => {});
+                    });
+                  }
+                }
+              })
+              .catch((err) => {
+                console.error('Intake classifier failed (non-blocking):', err);
+              });
+          } // end else (in-process fallback)
         }
 
         return artifactRow;

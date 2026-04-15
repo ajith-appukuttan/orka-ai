@@ -279,43 +279,66 @@ export function Sidebar({
                         >
                           {ws.title}
                         </Text>
-                        {ws.latestClassification ? (
-                          <Badge
-                            size="xs"
-                            variant="filled"
-                            color={
-                              ws.latestClassification.classification === 'DIRECT_TO_BUILD'
-                                ? 'teal'
-                                : ws.latestClassification.classification === 'NEEDS_ELABORATION'
-                                  ? 'yellow'
-                                  : ws.latestClassification.classification === 'NEEDS_PLANNING'
-                                    ? 'blue'
-                                    : ws.latestClassification.classification === 'RETURN_TO_INTAKE'
-                                      ? 'red'
-                                      : 'orange'
+                        {(() => {
+                          const statusBadge: Record<string, { label: string; color: string }> = {
+                            CLASSIFYING: { label: 'Classifying', color: 'yellow' },
+                            ELABORATING: { label: 'Elaborating', color: 'yellow' },
+                            PLANNING: { label: 'Planning', color: 'blue' },
+                            BUILDING: { label: 'Building', color: 'teal' },
+                            BUILT: { label: 'PR Ready', color: 'teal' },
+                            FAILED: { label: 'Failed', color: 'red' },
+                          };
+                          const badge = statusBadge[ws.status];
+                          if (badge) {
+                            return (
+                              <Badge
+                                size="xs"
+                                variant="filled"
+                                color={badge.color}
+                                styles={{ root: { fontSize: 9, textTransform: 'uppercase' } }}
+                              >
+                                {badge.label}
+                              </Badge>
+                            );
+                          }
+                          if (ws.latestClassification) {
+                            const classMap: Record<string, { label: string; color: string }> = {
+                              DIRECT_TO_BUILD: { label: 'Build', color: 'teal' },
+                              NEEDS_ELABORATION: { label: 'Elaboration', color: 'yellow' },
+                              NEEDS_PLANNING: { label: 'Planning', color: 'blue' },
+                              NEEDS_ELABORATION_AND_PLANNING: {
+                                label: 'Elab+Plan',
+                                color: 'orange',
+                              },
+                              RETURN_TO_INTAKE: { label: 'Intake', color: 'red' },
+                            };
+                            const cls = classMap[ws.latestClassification.classification];
+                            if (cls) {
+                              return (
+                                <Badge
+                                  size="xs"
+                                  variant="filled"
+                                  color={cls.color}
+                                  styles={{ root: { fontSize: 9, textTransform: 'uppercase' } }}
+                                >
+                                  {cls.label}
+                                </Badge>
+                              );
                             }
-                            styles={{ root: { fontSize: 9, textTransform: 'uppercase' } }}
-                          >
-                            {ws.latestClassification.classification === 'DIRECT_TO_BUILD'
-                              ? 'Build'
-                              : ws.latestClassification.classification === 'NEEDS_ELABORATION'
-                                ? 'Elaboration'
-                                : ws.latestClassification.classification === 'NEEDS_PLANNING'
-                                  ? 'Planning'
-                                  : ws.latestClassification.classification ===
-                                      'NEEDS_ELABORATION_AND_PLANNING'
-                                    ? 'Elab + Plan'
-                                    : 'Intake'}
-                          </Badge>
-                        ) : ws.readinessScore !== null && ws.readinessScore > 0 ? (
-                          <Badge
-                            size="xs"
-                            variant="dot"
-                            color={ws.readinessScore >= 0.8 ? 'teal' : 'blue'}
-                          >
-                            {Math.round(ws.readinessScore * 100)}%
-                          </Badge>
-                        ) : null}
+                          }
+                          if (ws.readinessScore !== null && ws.readinessScore > 0) {
+                            return (
+                              <Badge
+                                size="xs"
+                                variant="dot"
+                                color={ws.readinessScore >= 0.8 ? 'teal' : 'blue'}
+                              >
+                                {Math.round(ws.readinessScore * 100)}%
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
                       </Group>
                     }
                     description={formatTime(ws.updatedAt)}

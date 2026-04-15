@@ -76,6 +76,15 @@ export function IntakePage() {
   const visual = useVisualIntake(activeWorkspaceId);
   const extension = useExtensionBridge();
 
+  // Derive active workspace status and classification for pipeline stepper
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
+  const workspaceStatus = activeWorkspace?.status;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeClassification = (activeWorkspace as any)?.latestClassification as
+    | { classification: string; runId?: string }
+    | null
+    | undefined;
+
   // Analyze repo from visual intake
   const handleAnalyzeRepo = useCallback(
     async (repoUrl: string) => {
@@ -534,12 +543,37 @@ export function IntakePage() {
               </Button>
             </Group>
 
-            <ReadinessIndicator
-              score={readinessScore}
-              readyForReview={readinessScore >= 0.8}
-              onReview={handleReview}
-              hasVisualRequirements={visual.requirements.length > 0}
-            />
+            {(!workspaceStatus || workspaceStatus === 'ACTIVE') && (
+              <ReadinessIndicator
+                score={readinessScore}
+                readyForReview={readinessScore >= 0.8}
+                onReview={handleReview}
+                hasVisualRequirements={visual.requirements.length > 0}
+              />
+            )}
+
+            {workspaceStatus === 'ELABORATING' && (
+              <Box
+                px="md"
+                py="xs"
+                style={{ borderBottom: `1px solid ${themedColor('prdBorder')}`, flexShrink: 0 }}
+              >
+                <Group justify="center" gap="md" maw={960} mx="auto">
+                  <Text size="sm" ff="monospace" style={{ color: themedColor('chatText') }}>
+                    Resolved all blocking questions?
+                  </Text>
+                  <Button
+                    size="xs"
+                    radius="xl"
+                    variant="filled"
+                    color="teal"
+                    onClick={handleReview}
+                  >
+                    Re-submit for Review
+                  </Button>
+                </Group>
+              </Box>
+            )}
 
             <Group
               ref={containerRef}
@@ -564,6 +598,9 @@ export function IntakePage() {
                   isStreaming={isStreaming}
                   streamingContent={streamingContent}
                   readinessScore={readinessScore}
+                  workspaceStatus={workspaceStatus}
+                  classification={activeClassification?.classification}
+                  runId={activeClassification?.runId}
                 />
               </Box>
 

@@ -74,6 +74,7 @@ export const GET_MESSAGES = gql`
       sessionId
       role
       content
+      persona
       createdAt
     }
   }

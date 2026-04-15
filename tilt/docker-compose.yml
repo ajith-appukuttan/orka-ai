@@ -19,8 +19,11 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: redis-server --appendonly yes
     ports:
       - '6379:6379'
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -86,6 +89,9 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
+      GH_TOKEN: ${GH_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      USE_WORKER: ${USE_WORKER:-false}
     volumes:
       - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
     depends_on:
@@ -128,6 +134,35 @@ services:
   #     PORT: '4002'
   #     ALLOWED_PREVIEW_HOSTS: 'localhost,127.0.0.1,*.asurion.net,*.aws.asurion.net'
 
+  agent-worker:
+    build:
+      context: ..
+      dockerfile: apps/agent-worker/Dockerfile.dev
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    environment:
+      DATABASE_URL: postgresql://orka:orka@postgres:5432/orka
+      REDIS_URL: redis://redis:6379
+      GH_TOKEN: ${GH_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      ANTHROPIC_VERTEX_PROJECT_ID: ${ANTHROPIC_VERTEX_PROJECT_ID:-}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-east5}
+      CLOUD_ML_REGION: ${CLOUD_ML_REGION:-us-east5}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-}
+      OBJECT_STORAGE_PROVIDER: minio
+      OBJECT_STORAGE_BUCKET: approved-artifacts
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+      MCP_GATEWAY_URL: http://mcp-gateway:4001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
   mock-app:
     image: nginx:alpine
     ports:
@@ -137,4 +172,5 @@ services:
 
 volumes:
   pgdata:
+  redis-data:
   miniodata:

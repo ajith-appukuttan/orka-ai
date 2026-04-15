@@ -1,7 +1,9 @@
 import { Stack, Box, Paper, Text, Group } from '@mantine/core';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
+import { PipelineStepper } from '../pipeline/PipelineStepper';
 import { useTheme } from '../../hooks/useTheme';
+import { getBotName } from '../../utils/botName';
 
 interface Message {
   id: string;
@@ -17,6 +19,9 @@ interface ChatPanelProps {
   isStreaming: boolean;
   streamingContent: string | null;
   readinessScore?: number;
+  workspaceStatus?: string;
+  classification?: string | null;
+  runId?: string | null;
 }
 
 export function ChatPanel({
@@ -26,16 +31,59 @@ export function ChatPanel({
   isStreaming,
   streamingContent,
   readinessScore = 0,
+  workspaceStatus,
+  classification,
+  runId,
 }: ChatPanelProps) {
   const { themedColor, contentMaxWidth } = useTheme();
 
   const pct = Math.round(readinessScore * 100);
   const isReady = readinessScore >= 0.8;
 
+  const botName = getBotName(workspaceStatus);
+
   return (
     <Stack h="100%" gap={0}>
+      {/* Chat header */}
+      <Box
+        px="md"
+        py={10}
+        style={{
+          borderBottom: `1px solid ${themedColor('prdBorder')}`,
+          flexShrink: 0,
+        }}
+      >
+        <Group justify="space-between" align="center" maw={contentMaxWidth} mx="auto" w="100%">
+          <Group gap={8}>
+            <Box
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: themedColor('accentGreen'),
+                boxShadow: `0 0 6px ${themedColor('accentGreen')}`,
+              }}
+            />
+            <Text
+              size="sm"
+              fw={800}
+              ff="monospace"
+              tt="uppercase"
+              style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
+            >
+              {botName}
+            </Text>
+          </Group>
+          {runId && (
+            <Text size="xs" fw={600} ff="monospace" style={{ color: themedColor('chatAccent') }}>
+              {runId}
+            </Text>
+          )}
+        </Group>
+      </Box>
+
       {/* Readiness bar */}
-      {readinessScore > 0 && (
+      {readinessScore > 0 && (!workspaceStatus || workspaceStatus === 'ACTIVE') && (
         <Box
           px="md"
           py={8}
@@ -99,6 +147,15 @@ export function ChatPanel({
         </Box>
       )}
 
+      {/* Pipeline stepper */}
+      {workspaceStatus && (
+        <Box style={{ borderBottom: `1px solid ${themedColor('prdBorder')}`, flexShrink: 0 }}>
+          <Box maw={contentMaxWidth} mx="auto" w="100%">
+            <PipelineStepper workspaceStatus={workspaceStatus} classification={classification} />
+          </Box>
+        </Box>
+      )}
+
       {/* Messages — minHeight:0 is required for flex child scrolling */}
       <Box flex={1} style={{ overflow: 'hidden', minHeight: 0 }}>
         <MessageList
@@ -107,6 +164,7 @@ export function ChatPanel({
           isStreaming={isStreaming}
           streamingContent={streamingContent}
           onQuickReply={onSendMessage}
+          workspaceStatus={workspaceStatus}
         />
       </Box>
 
