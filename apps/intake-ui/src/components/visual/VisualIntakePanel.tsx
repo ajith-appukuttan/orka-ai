@@ -593,7 +593,13 @@ export function VisualIntakePanel({
                 >
                   <Avatar role={msg.role} />
                   <Box flex={1} pt={2}>
-                    <Text size="xs" fw={600} mb={4}>
+                    <Text
+                      size="xs"
+                      fw={600}
+                      mb={4}
+                      ff="monospace"
+                      style={{ color: themedColor('chatTextDimmed') }}
+                    >
                       {msg.role === 'user' ? 'You' : 'Virtual PM'}
                     </Text>
 
@@ -626,7 +632,14 @@ export function VisualIntakePanel({
                     )}
 
                     {/* Message content */}
-                    <Box className="orka-markdown" style={{ fontSize: 14, lineHeight: 1.7 }}>
+                    <Box
+                      className="orka-markdown"
+                      style={{
+                        fontSize: 14,
+                        lineHeight: 1.7,
+                        color: themedColor('chatText'),
+                      }}
+                    >
                       <Markdown>{msg.content}</Markdown>
                     </Box>
 
@@ -729,7 +742,13 @@ export function VisualIntakePanel({
             </Paper>
           )}
 
-          <Text size="xs" c="dimmed" ta="center" mt={8}>
+          <Text
+            size="xs"
+            ta="center"
+            mt={8}
+            ff="monospace"
+            style={{ color: themedColor('chatTextDimmed') }}
+          >
             Virtual PM can make mistakes. Review the generated requirements carefully.
           </Text>
         </Box>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Group, Textarea, ActionIcon, Box } from '@mantine/core';
+import { useTheme } from '../../hooks/useTheme';
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -16,6 +17,7 @@ export function MessageInput({
   value: controlledValue,
   onChange: controlledOnChange,
 }: MessageInputProps) {
+  const { themedColor } = useTheme();
   const [internalValue, setInternalValue] = useState('');
 
   const value = controlledValue ?? internalValue;
@@ -53,6 +55,7 @@ export function MessageInput({
             fontSize: '0.95rem',
             lineHeight: 1.5,
             padding: '8px 12px',
+            color: themedColor('chatText'),
           },
         }}
       />
@@ -61,7 +64,7 @@ export function MessageInput({
           size={32}
           radius="xl"
           variant={value.trim() ? 'filled' : 'subtle'}
-          color={value.trim() ? 'dark' : 'gray'}
+          color={value.trim() ? 'teal' : 'gray'}
           onClick={handleSend}
           disabled={disabled || !value.trim()}
           aria-label="Send message"

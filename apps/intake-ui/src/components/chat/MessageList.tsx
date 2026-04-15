@@ -147,10 +147,23 @@ export function MessageList({
               >
                 <Avatar role={msg.role} />
                 <Box flex={1} pt={2}>
-                  <Text size="xs" fw={600} mb={4}>
+                  <Text
+                    size="xs"
+                    fw={600}
+                    mb={4}
+                    ff="monospace"
+                    style={{ color: themedColor('chatTextDimmed') }}
+                  >
                     {msg.role === 'user' ? 'You' : msg.role === 'system' ? 'System' : 'Virtual PM'}
                   </Text>
-                  <Box className="orka-markdown" style={{ fontSize: 14, lineHeight: 1.7 }}>
+                  <Box
+                    className="orka-markdown"
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 1.7,
+                      color: themedColor('chatText'),
+                    }}
+                  >
                     <Markdown>{msg.content}</Markdown>
                   </Box>
 

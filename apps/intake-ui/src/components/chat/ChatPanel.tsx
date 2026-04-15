@@ -54,7 +54,13 @@ export function ChatPanel({
             <MessageInput onSend={onSendMessage} disabled={isLoading || isStreaming} />
           </Paper>
 
-          <Text size="xs" c="dimmed" ta="center" mt={8}>
+          <Text
+            size="xs"
+            ta="center"
+            mt={8}
+            ff="monospace"
+            style={{ color: themedColor('chatTextDimmed') }}
+          >
             Virtual PM can make mistakes. Review the intake draft carefully.
           </Text>
         </Box>
