@@ -81,7 +81,7 @@ export function IntakePage() {
   const workspaceStatus = activeWorkspace?.status;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const activeClassification = (activeWorkspace as any)?.latestClassification as
-    | { classification: string }
+    | { classification: string; runId?: string }
     | null
     | undefined;
 
@@ -577,6 +577,7 @@ export function IntakePage() {
                   readinessScore={readinessScore}
                   workspaceStatus={workspaceStatus}
                   classification={activeClassification?.classification}
+                  runId={activeClassification?.runId}
                 />
               </Box>
 

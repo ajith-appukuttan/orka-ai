@@ -10,7 +10,7 @@ export const theme = createTheme({
       'Sohne, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif',
   },
   other: {
-    contentMaxWidth: 768,
+    contentMaxWidth: 960,
     // Sidebar / workspace panel
     sidebarBg: { light: '#f0f0f0', dark: '#1a1b1e' },
     sidebarHeaderBg: { light: '#e4e4e7', dark: '#141517' },
