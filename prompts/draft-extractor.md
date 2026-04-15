@@ -62,7 +62,11 @@ Return a valid JSON object matching this schema:
 
 4. **Probe for the problem, not the solution.** If the user described implementation ("add a dropdown"), extract the underlying problem into `problemStatement.what` and note the implementation as a constraint or assumption.
 
-5. **Name uncertainty.** If the copilot asked a question the user hasn't answered, or the user expressed uncertainty, add it to `openQuestions`. Named uncertainty is the most valuable output.
+5. **Manage openQuestions actively.**
+   - **Add** questions the user hasn't answered, or where uncertainty was expressed.
+   - **Remove** questions that were answered in the conversation. If the current draft has an open question like "What color for the button?" and the user answered "#2E7D32", remove that question from `openQuestions`.
+   - **Remove** questions that were resolved by tool results. If a tool returned the file path that was listed as an open question, remove it.
+   - `openQuestions` should only contain **genuinely unresolved** items after each extraction. Do NOT carry forward questions that have been answered.
 
 6. **Compute readinessScore** based on the five core prompts and supplementary fields:
 

@@ -73,6 +73,22 @@ export const approvalResolvers = {
 
         if (!draftPayload) throw new Error('No draft found for session');
 
+        // Clear open questions when re-approving from ELABORATING
+        // The user explicitly clicked re-approve, signaling questions are resolved
+        if (session.status === 'APPROVED' || session.status === 'ELABORATING') {
+          const wsStatus = await client.query(
+            'SELECT status FROM intake_workspaces WHERE id = $1',
+            [session.workspace_id],
+          );
+          if (wsStatus.rows[0]?.status === 'ELABORATING') {
+            const draft = draftPayload as Record<string, unknown>;
+            draft.openQuestions = [];
+            draft.unresolvedQuestions = [];
+            draftPayload = draft;
+            console.info('[Approval] Cleared open questions for re-approval from ELABORATING');
+          }
+        }
+
         // 3. Generate run ID
         const runId = await generateRunId();
 
