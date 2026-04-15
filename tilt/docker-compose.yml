@@ -138,6 +138,8 @@ services:
     build:
       context: ..
       dockerfile: apps/agent-worker/Dockerfile.dev
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
     environment:
       DATABASE_URL: postgresql://orka:orka@postgres:5432/orka
       REDIS_URL: redis://redis:6379
