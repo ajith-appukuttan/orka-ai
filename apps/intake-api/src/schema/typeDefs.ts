@@ -27,8 +27,13 @@ export const typeDefs = `#graphql
 
   enum WorkspaceStatus {
     ACTIVE
-    REVIEWING
     APPROVED
+    CLASSIFYING
+    ELABORATING
+    PLANNING
+    BUILDING
+    BUILT
+    FAILED
     ARCHIVED
   }
 
