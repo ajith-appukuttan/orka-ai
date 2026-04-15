@@ -297,7 +297,7 @@ function Avatar({ role, workspaceStatus }: { role: string; workspaceStatus?: str
         flexShrink: 0,
       }}
     >
-      {role === 'user' ? 'U' : getBotAvatarLetter(workspaceStatus)}
+      {role === 'user' ? '🧑' : getBotAvatarLetter(workspaceStatus)}
     </Box>
   );
 }
@@ -369,129 +369,174 @@ export function MessageList({
     <ScrollArea h="100%" viewportRef={scrollRef} scrollbarSize={8} type="always">
       <Stack gap={0} py="md">
         {messages.map((msg, idx) => {
+          const isUser = msg.role === 'user';
           const isLastAssistant = idx === lastAssistantIdx && !isStreaming;
           const options = isLastAssistant ? extractOptions(msg.content) : [];
 
           return (
-            <Box
-              key={msg.id}
-              py="md"
-              px="md"
-              style={{
-                background: msg.role === 'user' ? themedColor('userMsgBg') : 'transparent',
-              }}
-            >
-              <Group
-                align="flex-start"
-                gap="md"
-                wrap="nowrap"
-                maw={contentMaxWidth}
-                mx="auto"
-                w="100%"
-              >
-                <Avatar role={msg.role} workspaceStatus={workspaceStatus} />
-                <Box flex={1} pt={2}>
-                  <Text
-                    size="xs"
-                    fw={700}
-                    mb={4}
-                    ff="monospace"
-                    tt="uppercase"
-                    style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
-                  >
-                    {msg.role === 'user'
-                      ? 'You'
-                      : msg.role === 'system'
-                        ? 'System'
-                        : (msg as any).persona || botName}
-                  </Text>
-                  {isClassifierMessage(msg.content) ? (
-                    (() => {
-                      const parsed = parseClassifierMessage(msg.content);
-                      return parsed ? (
-                        <ClassifierCard parsed={parsed} onNavigate={navigate} />
+            <Box key={msg.id} py={6} px="md">
+              <Box maw={contentMaxWidth} mx="auto" w="100%">
+                {/* User messages: right-aligned bubble, no avatar */}
+                {isUser ? (
+                  <Box style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Box
+                      style={{
+                        maxWidth: '75%',
+                        background: themedColor('userBubbleBg'),
+                        border: `1px solid ${themedColor('userBubbleBorder')}`,
+                        borderRadius: '18px 18px 4px 18px',
+                        padding: '10px 16px',
+                      }}
+                    >
+                      <Text
+                        size="xs"
+                        fw={700}
+                        mb={4}
+                        ff="monospace"
+                        tt="uppercase"
+                        style={{
+                          color: themedColor('prdText'),
+                          letterSpacing: '0.08em',
+                          opacity: 0.7,
+                        }}
+                      >
+                        🧑 You
+                      </Text>
+                      <Box
+                        className="orka-markdown"
+                        style={{ fontSize: 14, lineHeight: 1.7, color: themedColor('chatText') }}
+                      >
+                        <Markdown components={{ a: linkRenderer }}>{msg.content}</Markdown>
+                      </Box>
+                    </Box>
+                  </Box>
+                ) : (
+                  /* Bot / system messages: left-aligned bubble with avatar */
+                  <Group align="flex-start" gap="sm" wrap="nowrap">
+                    <Avatar role={msg.role} workspaceStatus={workspaceStatus} />
+                    <Box
+                      style={{
+                        maxWidth: '80%',
+                        background: themedColor('botBubbleBg'),
+                        border: `1px solid ${themedColor('botBubbleBorder')}`,
+                        borderRadius: '4px 18px 18px 18px',
+                        padding: '10px 16px',
+                      }}
+                    >
+                      <Text
+                        size="xs"
+                        fw={700}
+                        mb={4}
+                        ff="monospace"
+                        tt="uppercase"
+                        style={{
+                          color: themedColor('prdText'),
+                          letterSpacing: '0.08em',
+                          opacity: 0.7,
+                        }}
+                      >
+                        {msg.role === 'system' ? 'System' : (msg as any).persona || botName}
+                      </Text>
+                      {isClassifierMessage(msg.content) ? (
+                        (() => {
+                          const parsed = parseClassifierMessage(msg.content);
+                          return parsed ? (
+                            <ClassifierCard parsed={parsed} onNavigate={navigate} />
+                          ) : (
+                            <Box
+                              className="orka-markdown"
+                              style={{
+                                fontSize: 14,
+                                lineHeight: 1.7,
+                                color: themedColor('chatText'),
+                              }}
+                            >
+                              <Markdown components={{ a: linkRenderer }}>{msg.content}</Markdown>
+                            </Box>
+                          );
+                        })()
                       ) : (
                         <Box
                           className="orka-markdown"
-                          style={{ fontSize: 14, lineHeight: 1.7, color: themedColor('chatText') }}
+                          style={{
+                            fontSize: 14,
+                            lineHeight: 1.7,
+                            color: themedColor('chatText'),
+                          }}
                         >
                           <Markdown components={{ a: linkRenderer }}>{msg.content}</Markdown>
                         </Box>
-                      );
-                    })()
-                  ) : (
-                    <Box
-                      className="orka-markdown"
-                      style={{
-                        fontSize: 14,
-                        lineHeight: 1.7,
-                        color: themedColor('chatText'),
-                      }}
-                    >
-                      <Markdown components={{ a: linkRenderer }}>{msg.content}</Markdown>
-                    </Box>
-                  )}
+                      )}
 
-                  {/* Quick reply buttons for options */}
-                  {options.length > 0 && onQuickReply && (
-                    <Group gap="xs" mt="sm" wrap="wrap">
-                      {options.map((option, i) => (
-                        <Button
-                          key={i}
-                          size="xs"
-                          radius="xl"
-                          variant="outline"
-                          color="teal"
-                          onClick={() => onQuickReply(option)}
-                          styles={{
-                            root: {
-                              fontWeight: 500,
-                              transition: 'all 150ms ease',
-                            },
-                          }}
-                        >
-                          {option}
-                        </Button>
-                      ))}
-                    </Group>
-                  )}
-                </Box>
-              </Group>
+                      {/* Quick reply buttons for options */}
+                      {options.length > 0 && onQuickReply && (
+                        <Group gap="xs" mt="sm" wrap="wrap">
+                          {options.map((option, i) => (
+                            <Button
+                              key={i}
+                              size="xs"
+                              radius="xl"
+                              variant="outline"
+                              color="teal"
+                              onClick={() => onQuickReply(option)}
+                              styles={{
+                                root: {
+                                  fontWeight: 500,
+                                  transition: 'all 150ms ease',
+                                },
+                              }}
+                            >
+                              {option}
+                            </Button>
+                          ))}
+                        </Group>
+                      )}
+                    </Box>
+                  </Group>
+                )}
+              </Box>
             </Box>
           );
         })}
 
         {isStreaming && streamingContent && (
-          <Box py="md" px="md">
-            <Group
-              align="flex-start"
-              gap="md"
-              wrap="nowrap"
-              maw={contentMaxWidth}
-              mx="auto"
-              w="100%"
-            >
-              <Avatar role="assistant" />
-              <StreamingMessage content={streamingContent} workspaceStatus={workspaceStatus} />
-            </Group>
+          <Box py={6} px="md">
+            <Box maw={contentMaxWidth} mx="auto" w="100%">
+              <Group align="flex-start" gap="sm" wrap="nowrap">
+                <Avatar role="assistant" workspaceStatus={workspaceStatus} />
+                <Box
+                  style={{
+                    maxWidth: '80%',
+                    background: themedColor('botBubbleBg'),
+                    border: `1px solid ${themedColor('botBubbleBorder')}`,
+                    borderRadius: '4px 18px 18px 18px',
+                    padding: '10px 16px',
+                  }}
+                >
+                  <StreamingMessage content={streamingContent} workspaceStatus={workspaceStatus} />
+                </Box>
+              </Group>
+            </Box>
           </Box>
         )}
 
         {isLoading && !isStreaming && (
-          <Box py="md" px="md">
-            <Group
-              align="flex-start"
-              gap="md"
-              wrap="nowrap"
-              maw={contentMaxWidth}
-              mx="auto"
-              w="100%"
-            >
-              <Avatar role="assistant" />
-              <Group gap="xs" pt={2}>
-                <Loader size="xs" type="dots" />
+          <Box py={6} px="md">
+            <Box maw={contentMaxWidth} mx="auto" w="100%">
+              <Group align="flex-start" gap="sm" wrap="nowrap">
+                <Avatar role="assistant" workspaceStatus={workspaceStatus} />
+                <Box
+                  style={{
+                    background: themedColor('botBubbleBg'),
+                    border: `1px solid ${themedColor('botBubbleBorder')}`,
+                    borderRadius: '4px 18px 18px 18px',
+                    padding: '12px 20px',
+                  }}
+                >
+                  <Loader size="xs" type="dots" />
+                </Box>
               </Group>
-            </Group>
+            </Box>
           </Box>
         )}
 

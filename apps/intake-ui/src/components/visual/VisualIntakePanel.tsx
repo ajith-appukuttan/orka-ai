@@ -196,7 +196,7 @@ function Avatar({ role }: { role: string }) {
     role === 'user'
       ? tc('accentPurple')
       : `linear-gradient(135deg, ${tc('accentGreenGradientFrom')} 0%, ${tc('accentGreenGradientTo')} 100%)`;
-  const letter = role === 'user' ? 'U' : 'V';
+  const letter = role === 'user' ? '🧑' : '📝';
 
   return (
     <Box
@@ -606,7 +606,7 @@ export function VisualIntakePanel({
                       tt="uppercase"
                       style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
                     >
-                      {msg.role === 'user' ? 'You' : 'Virtual PM'}
+                      {msg.role === 'user' ? '🧑 You' : '📝 Virtual PM'}
                     </Text>
 
                     {/* Screenshot inline */}

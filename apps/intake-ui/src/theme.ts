@@ -51,6 +51,11 @@ export const theme = createTheme({
     accentGreenGradientTo: { light: '#1a7f64', dark: '#2ea043' },
     accentPurple: { light: '#5436DA', dark: '#8b5cf6' },
     avatarText: { light: '#ffffff', dark: '#ffffff' },
+    // Chat bubbles
+    userBubbleBg: { light: '#3b3d6b', dark: '#1f2a47' },
+    userBubbleBorder: { light: '#4e4f8a', dark: '#2a3a5c' },
+    botBubbleBg: { light: '#262637', dark: '#161b22' },
+    botBubbleBorder: { light: '#313244', dark: '#21262d' },
     // Borders for cards/screenshots
     cardBorder: { light: '#313244', dark: '#21262d' },
     // Dimmed text (replaces c="dimmed" which doesn't work well on dark bg)
