@@ -40,7 +40,7 @@ export function ChatPanel({
   return (
     <Stack h="100%" gap={0}>
       {/* Readiness bar */}
-      {readinessScore > 0 && (
+      {readinessScore > 0 && (!workspaceStatus || workspaceStatus === 'ACTIVE') && (
         <Box
           px="md"
           py={8}
