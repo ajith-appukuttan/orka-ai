@@ -94,11 +94,19 @@ async function persistWorkspaceDraft(
 
   const savedDraft = draftResult.rows[0];
 
-  // Update workspace latest_draft_id
-  await query(
-    `UPDATE intake_workspaces SET latest_draft_id = $1, updated_at = NOW() WHERE id = $2`,
-    [savedDraft.id, workspaceId],
-  );
+  // Update workspace latest_draft_id and title when PRD is ready
+  const prdTitle = (draft as Record<string, unknown>).title as string | undefined;
+  if (readinessScore >= 0.8 && prdTitle && prdTitle.length > 0) {
+    await query(
+      `UPDATE intake_workspaces SET latest_draft_id = $1, title = $2, updated_at = NOW() WHERE id = $3`,
+      [savedDraft.id, prdTitle, workspaceId],
+    );
+  } else {
+    await query(
+      `UPDATE intake_workspaces SET latest_draft_id = $1, updated_at = NOW() WHERE id = $2`,
+      [savedDraft.id, workspaceId],
+    );
+  }
 
   // Update session readiness
   await query(`UPDATE intake_sessions SET readiness_score = $1, updated_at = NOW() WHERE id = $2`, [
