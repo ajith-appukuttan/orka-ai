@@ -50,8 +50,9 @@ function runRuleBasedPrecheck(prd: Record<string, unknown>): PrecheckResult {
     blockingQuestions: [],
   };
 
-  // Check acceptance criteria
+  // Check acceptance criteria — look in multiple places since PRDs store them differently
   const acceptanceCriteria = (prd.acceptanceCriteria as string[]) || [];
+  const goals = (prd.goals as string[]) || [];
   const uiRequirements = (prd.uiRequirements as unknown[]) || [];
   const uiUxRequirements = (prd.uiUxRequirements as unknown[]) || [];
   const allCriteria = [
@@ -64,9 +65,16 @@ function runRuleBasedPrecheck(prd: Record<string, unknown>): PrecheckResult {
     ),
   ];
 
-  if (allCriteria.length === 0) {
-    result.minClassification = 'RETURN_TO_INTAKE';
-    result.blockingQuestions.push('No acceptance criteria defined');
+  // Goals can serve as acceptance criteria if they are specific and testable
+  const hasTestableGoals = goals.length > 0 && goals.some((g) => g.length > 20);
+
+  if (allCriteria.length === 0 && !hasTestableGoals) {
+    // No acceptance criteria AND no testable goals — needs more work
+    // But don't force RETURN_TO_INTAKE — let Claude decide the severity
+    result.minClassification = 'NEEDS_ELABORATION';
+    result.blockingQuestions.push(
+      'No formal acceptance criteria defined (goals may partially serve this purpose)',
+    );
   }
 
   // Check open questions
@@ -77,12 +85,11 @@ function runRuleBasedPrecheck(prd: Record<string, unknown>): PrecheckResult {
     result.blockingQuestions.push(...openQuestions);
   }
 
-  // Check scope indicators
-  const goals = (prd.goals as string[]) || [];
+  // Check scope indicators — use user stories and UI requirements, NOT goals count
   const userStories = (prd.userStories as unknown[]) || [];
   const uiReqCount = uiRequirements.length + uiUxRequirements.length;
 
-  if (userStories.length > 3 || uiReqCount > 3 || goals.length > 3) {
+  if (userStories.length > 3 || uiReqCount > 3) {
     result.signals.scopeSize = 'LARGE';
     result.signals.taskDecompositionNeeded = true;
     if (!result.minClassification || result.minClassification === 'DIRECT_TO_BUILD') {
