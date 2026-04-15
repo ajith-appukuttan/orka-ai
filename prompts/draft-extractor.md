@@ -25,6 +25,7 @@ Return a valid JSON object matching this schema:
   "trigger": "",
   "goals": [],
   "nonGoals": [],
+  "acceptanceCriteria": [],
   "userStories": [{ "role": "", "action": "", "outcome": "" }],
   "constraints": [],
   "openQuestions": [],
@@ -52,6 +53,7 @@ Return a valid JSON object matching this schema:
    - "Why now?" / "what triggered this?" / "user feedback" / "incident" → `trigger`
    - "Success looks like" / "metric" / "outcome" / "definition of done" → `goals`
    - "Not doing" / "out of scope" / "excluding" / "not in this version" → `nonGoals`
+   - "Should" / "must" / "verify that" / "ensure" / "given...when...then" / specific testable conditions → `acceptanceCriteria`
    - "As a..." / user stories → `userStories` (split into role/action/outcome)
    - "Constraint" / "limitation" / "budget" / "deadline" / "legal" → `constraints`
    - "Not sure" / "need to find out" / "open question" / "TBD" → `openQuestions`
@@ -76,6 +78,7 @@ Return a valid JSON object matching this schema:
    **Supplementary fields:**
    - Title (non-empty): weight 0.5
    - Trigger (non-empty): weight 0.5
+   - Acceptance Criteria (at least one): weight 2 (critical for build-readiness)
    - User stories (at least one): weight 1
    - Constraints (at least one): weight 0.5
    - Current State description (non-empty): weight 1
@@ -83,7 +86,7 @@ Return a valid JSON object matching this schema:
    - UI Requirements (at least one, from visual intake): weight 1
 
    **Scoring:**
-   - Score = sum of filled weights / total possible weight (12.5)
+   - Score = sum of filled weights / total possible weight (14.5)
    - Round to 2 decimal places
    - **Update the score every extraction** — even small additions should increment it. If a user provides a one-word answer to trigger ("feedback"), that's still worth the 0.5 weight.
    - Do NOT keep the score flat across multiple extractions if new information was added.

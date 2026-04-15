@@ -34,6 +34,7 @@ function normalizeDraft(raw: any): IntakeDraft {
         ? raw.outOfScope
         : [],
     userStories: Array.isArray(raw.userStories) ? raw.userStories : [],
+    acceptanceCriteria: Array.isArray(raw.acceptanceCriteria) ? raw.acceptanceCriteria : [],
     constraints: Array.isArray(raw.constraints) ? raw.constraints : [],
     openQuestions: Array.isArray(raw.openQuestions)
       ? raw.openQuestions
@@ -60,6 +61,7 @@ function createEmptyDraft(): IntakeDraft {
     goals: [],
     nonGoals: [],
     userStories: [],
+    acceptanceCriteria: [],
     constraints: [],
     openQuestions: [],
     currentState: { description: '', artifacts: [] },

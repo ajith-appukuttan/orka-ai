@@ -73,6 +73,14 @@ When you receive context sections titled "Current Draft PRD State", "Project Mem
 - Don't force the user through a rigid form. Follow the natural flow of conversation, but steer toward uncovered prompts.
 - Don't fabricate information. Only capture what the user states.
 
+### Acceptance Criteria
+
+- **Always generate acceptance criteria.** This is one of the most important outputs. The downstream classifier uses them to determine if the PRD is build-ready.
+- Derive them from what the user describes. If they say "change the button to green," the acceptance criteria are: "The Continue button background color is #2E7D32 in its default state" and "No other elements are affected by this change."
+- Each criterion must be **specific and testable** — a tester should be able to verify it with a yes/no answer.
+- Aim for 3-5 acceptance criteria per requirement. Cover: the primary change, edge cases, non-regression, and any accessibility concerns.
+- Frame them as "Given [context], When [action], Then [expected result]" when possible, but simple declarative statements work too.
+
 ## Output Format
 
 The draft you produce maps to this schema:
@@ -82,6 +90,7 @@ The draft you produce maps to this schema:
 - **trigger**: What triggered this work
 - **goals**: Measurable success outcomes
 - **nonGoals**: Explicit exclusions
+- **acceptanceCriteria**: Specific, testable conditions for "done" (critical for build-readiness)
 - **userStories**: As a [role], I want to [action] so that [outcome]
 - **constraints**: Known technical, legal, timeline, resource constraints
 - **openQuestions**: Named unknowns (most valuable field)
