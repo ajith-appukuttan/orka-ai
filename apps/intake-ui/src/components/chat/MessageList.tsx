@@ -4,6 +4,7 @@ import Markdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import { StreamingMessage } from './StreamingMessage';
 import { useTheme } from '../../hooks/useTheme';
+import { getBotName, getBotAvatarLetter } from '../../utils/botName';
 
 // ─── Classifier result detection ───────────────────────
 function isClassifierMessage(content: string): boolean {
@@ -94,6 +95,7 @@ interface MessageListProps {
   isStreaming: boolean;
   streamingContent: string | null;
   onQuickReply?: (text: string) => void;
+  workspaceStatus?: string;
 }
 
 /**
@@ -272,7 +274,7 @@ function ClassifierCard({
   );
 }
 
-function Avatar({ role }: { role: string }) {
+function Avatar({ role, workspaceStatus }: { role: string; workspaceStatus?: string }) {
   const { themedColor: tc } = useTheme();
   const bg =
     role === 'user'
@@ -295,7 +297,7 @@ function Avatar({ role }: { role: string }) {
         flexShrink: 0,
       }}
     >
-      {role === 'user' ? 'U' : 'V'}
+      {role === 'user' ? 'U' : getBotAvatarLetter(workspaceStatus)}
     </Box>
   );
 }
@@ -306,7 +308,9 @@ export function MessageList({
   isStreaming,
   streamingContent,
   onQuickReply,
+  workspaceStatus,
 }: MessageListProps) {
+  const botName = getBotName(workspaceStatus);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { contentMaxWidth, themedColor } = useTheme();
@@ -385,7 +389,7 @@ export function MessageList({
                 mx="auto"
                 w="100%"
               >
-                <Avatar role={msg.role} />
+                <Avatar role={msg.role} workspaceStatus={workspaceStatus} />
                 <Box flex={1} pt={2}>
                   <Text
                     size="xs"
@@ -395,7 +399,7 @@ export function MessageList({
                     tt="uppercase"
                     style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
                   >
-                    {msg.role === 'user' ? 'You' : msg.role === 'system' ? 'System' : 'Virtual PM'}
+                    {msg.role === 'user' ? 'You' : msg.role === 'system' ? 'System' : botName}
                   </Text>
                   {isClassifierMessage(msg.content) ? (
                     (() => {
@@ -464,7 +468,7 @@ export function MessageList({
               w="100%"
             >
               <Avatar role="assistant" />
-              <StreamingMessage content={streamingContent} />
+              <StreamingMessage content={streamingContent} workspaceStatus={workspaceStatus} />
             </Group>
           </Box>
         )}

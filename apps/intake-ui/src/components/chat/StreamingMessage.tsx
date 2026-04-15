@@ -1,12 +1,14 @@
 import { Box, Text } from '@mantine/core';
 import Markdown from 'react-markdown';
 import { useTheme } from '../../hooks/useTheme';
+import { getBotName } from '../../utils/botName';
 
 interface StreamingMessageProps {
   content: string;
+  workspaceStatus?: string;
 }
 
-export function StreamingMessage({ content }: StreamingMessageProps) {
+export function StreamingMessage({ content, workspaceStatus }: StreamingMessageProps) {
   const { themedColor } = useTheme();
 
   return (
@@ -19,7 +21,7 @@ export function StreamingMessage({ content }: StreamingMessageProps) {
         tt="uppercase"
         style={{ color: themedColor('prdText'), letterSpacing: '0.08em' }}
       >
-        Virtual PM
+        {getBotName(workspaceStatus)}
       </Text>
       <Box
         className="orka-markdown"

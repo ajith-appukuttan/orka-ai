@@ -121,6 +121,7 @@ export function ChatPanel({
           isStreaming={isStreaming}
           streamingContent={streamingContent}
           onQuickReply={onSendMessage}
+          workspaceStatus={workspaceStatus}
         />
       </Box>
 
