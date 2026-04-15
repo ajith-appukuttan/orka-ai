@@ -278,7 +278,7 @@ export const approvalResolvers = {
                                tool_calls as "toolCalls", created_at as "createdAt"`,
                     [
                       sessionId,
-                      `## Starting Build\n\nClassifier approved for **Direct to Build**. Initiating automated build pipeline...\n\n*Creating worktree, loading skills, planning tasks...*`,
+                      `Build is now in progress. You'll be notified here when it's complete.`,
                     ],
                   );
                   if (buildStartMsg.rows[0]) {
