@@ -62,6 +62,9 @@ importers:
       pg:
         specifier: ^8.13.0
         version: 8.20.0
+      simple-git:
+        specifier: ^3.36.0
+        version: 3.36.0
       ws:
         specifier: ^8.18.0
         version: 8.20.0

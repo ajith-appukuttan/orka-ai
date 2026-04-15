@@ -24,6 +24,26 @@ const memoryCuratorPrompt = loadPrompt('memory-curator.md');
 const visualIntakePrompt = loadPrompt('visual-intake.md');
 const repoAnalyzerPrompt = loadPrompt('repo-analyzer.md');
 
+/**
+ * Generic prompt-based generation for builder agents.
+ * Loads the prompt file dynamically (not cached at startup).
+ */
+export async function generateWithPrompt(
+  promptFile: string,
+  userContent: string,
+  maxTokens: number = 4096,
+): Promise<string> {
+  const systemPrompt = loadPrompt(promptFile);
+  const response = await client.messages.create({
+    model: config.vertex.model,
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userContent }],
+  });
+  const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
+  return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '{}';
+}
+
 export interface ConversationMessage {
   role: 'user' | 'assistant';
   content: string;

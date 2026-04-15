@@ -233,6 +233,40 @@ export const typeDefs = `#graphql
     confidence: Float!
   }
 
+  # ─── Build Runs ──────────────────────────────────────────
+  type BuildRun {
+    id: ID!
+    runId: String!
+    repoUrl: String!
+    worktreeBranch: String!
+    status: String!
+    summary: String
+    prUrl: String
+    prNumber: Int
+    totalTasks: Int!
+    completedTasks: Int!
+    failedTasks: Int!
+    startedAt: DateTime
+    completedAt: DateTime
+    createdAt: DateTime!
+    tasks: [BuildTask!]!
+  }
+
+  type BuildTask {
+    id: ID!
+    taskIndex: Int!
+    description: String!
+    filesAffected: JSON!
+    acceptanceCriteria: JSON!
+    status: String!
+    commitHash: String
+    commitMessage: String
+    errorMessage: String
+    reviewNotes: String
+    startedAt: DateTime
+    completedAt: DateTime
+  }
+
   # ─── Streaming ─────────────────────────────────────────
   type StreamingChunk {
     sessionId: ID!
@@ -267,6 +301,10 @@ export const typeDefs = `#graphql
     codeTargetsForRequirement(requirementId: ID!): [CodeTarget!]!
 
     # Search
+    # Build queries
+    buildRun(runId: String!): BuildRun
+    buildRuns(workspaceId: ID!): [BuildRun!]!
+
     searchIntake(query: String!, tenantId: String!): [SearchResult!]!
 
     # Approved artifact queries
@@ -430,6 +468,13 @@ export const typeDefs = `#graphql
       workspaceId: ID!
       requirementIds: [ID!]
     ): [CodeTargetMapping!]!
+
+    # Build mutations
+    triggerBuild(
+      runId: String!
+      workspaceId: ID!
+      sessionId: ID
+    ): BuildRun!
   }
 
   # ═══════════════════════════════════════════════════════

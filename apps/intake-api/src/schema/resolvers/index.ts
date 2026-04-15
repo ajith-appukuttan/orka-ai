@@ -7,6 +7,8 @@ import { artifactResolvers } from './artifacts.js';
 import { memoryResolvers } from './memory.js';
 import { visualResolvers } from './visual.js';
 import { repoResolvers } from './repo.js';
+import { classificationResolvers } from './classification.js';
+import { buildResolvers } from './build.js';
 
 export const resolvers = {
   Query: {
@@ -18,6 +20,8 @@ export const resolvers = {
     ...visualResolvers.Query,
     ...artifactResolvers.Query,
     ...repoResolvers.Query,
+    ...classificationResolvers.Query,
+    ...buildResolvers.Query,
   },
   Mutation: {
     ...workspaceResolvers.Mutation,
@@ -28,6 +32,7 @@ export const resolvers = {
     ...memoryResolvers.Mutation,
     ...visualResolvers.Mutation,
     ...repoResolvers.Mutation,
+    ...buildResolvers.Mutation,
   },
   Subscription: {
     ...messageResolvers.Subscription,
@@ -39,6 +44,8 @@ export const resolvers = {
   IntakeWorkspace: {
     ...workspaceResolvers.IntakeWorkspace,
     ...repoResolvers.IntakeWorkspace,
+    ...classificationResolvers.IntakeWorkspace,
   },
   IntakeSession: sessionResolvers.IntakeSession,
+  BuildRun: buildResolvers.BuildRun,
 };
