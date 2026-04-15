@@ -552,6 +552,29 @@ export function IntakePage() {
               />
             )}
 
+            {workspaceStatus === 'ELABORATING' && (
+              <Box
+                px="md"
+                py="xs"
+                style={{ borderBottom: `1px solid ${themedColor('prdBorder')}`, flexShrink: 0 }}
+              >
+                <Group justify="center" gap="md" maw={960} mx="auto">
+                  <Text size="sm" ff="monospace" style={{ color: themedColor('chatText') }}>
+                    Resolved all blocking questions?
+                  </Text>
+                  <Button
+                    size="xs"
+                    radius="xl"
+                    variant="filled"
+                    color="teal"
+                    onClick={handleReview}
+                  >
+                    Re-submit for Review
+                  </Button>
+                </Group>
+              </Box>
+            )}
+
             <Group
               ref={containerRef}
               flex={1}
