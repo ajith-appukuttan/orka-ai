@@ -18,6 +18,7 @@
     "@orka/draft-schema": "workspace:*",
     "@orka/object-storage": "workspace:*",
     "@orka/shared-types": "workspace:*",
+    "bullmq": "^5.74.1",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "graphql": "^16.9.0",

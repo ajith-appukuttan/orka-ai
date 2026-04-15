@@ -1,6 +1,9 @@
 import { query } from '../../db/pool.js';
 import { pubsub, EVENTS } from '../../pubsub/index.js';
 import { runChatTurnPipeline } from '../../agents/intakeCopilot.js';
+import { chatTurnQueue } from '../../jobs/queues.js';
+
+const USE_WORKER = process.env.USE_WORKER === 'true';
 
 export const messageResolvers = {
   Query: {
@@ -45,20 +48,28 @@ export const messageResolvers = {
       // Run the full chat turn pipeline asynchronously:
       // Claude streaming response → persist → draft extraction
       // The response comes back via the intakeMessageStream subscription.
-      runChatTurnPipeline(sessionId).catch((err) => {
-        console.error(`Chat turn pipeline failed for session ${sessionId}:`, err);
-
-        // Publish an error message so the UI knows something went wrong
-        pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
-          intakeMessageStream: {
-            id: `error-${Date.now()}`,
-            sessionId,
-            role: 'system',
-            content: 'Sorry, something went wrong processing your message. Please try again.',
-            createdAt: new Date().toISOString(),
-          },
+      if (USE_WORKER) {
+        // Enqueue to BullMQ worker (separate pod)
+        chatTurnQueue.add('chat-turn', { sessionId }).catch((err) => {
+          console.error(`Failed to enqueue chat turn for ${sessionId}:`, err);
         });
-      });
+      } else {
+        // In-process fallback (single pod mode)
+        runChatTurnPipeline(sessionId).catch((err) => {
+          console.error(`Chat turn pipeline failed for session ${sessionId}:`, err);
+
+          // Publish an error message so the UI knows something went wrong
+          pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
+            intakeMessageStream: {
+              id: `error-${Date.now()}`,
+              sessionId,
+              role: 'system',
+              content: 'Sorry, something went wrong processing your message. Please try again.',
+              createdAt: new Date().toISOString(),
+            },
+          });
+        });
+      } // end else (in-process fallback)
 
       // Return the user message immediately — assistant response arrives via subscription
       return userMessage;

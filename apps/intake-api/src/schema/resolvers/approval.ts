@@ -6,6 +6,9 @@ import { runIntakeReadinessClassifier } from '../../agents/intakeReadinessClassi
 import { executeBuild } from '../../agents/builder/orchestrator.js';
 import { pubsub, EVENTS } from '../../pubsub/index.js';
 import { transitionWorkspace } from '../../services/pipelineTransition.js';
+import { classifyQueue, buildQueue } from '../../jobs/queues.js';
+
+const USE_WORKER = process.env.USE_WORKER === 'true';
 
 const storageClient = createStorageClient();
 
@@ -190,123 +193,140 @@ export const approvalResolvers = {
             () => {},
           );
 
-          runIntakeReadinessClassifier(
-            runId,
-            artifactRow.id,
-            classifierWorkspaceId,
-            classifierTenantId,
-            draftPayload as Record<string, unknown>,
-          )
-            .then(async (decision) => {
-              if (!decision) return;
+          if (USE_WORKER) {
+            // Enqueue to BullMQ worker
+            classifyQueue
+              .add('classify', {
+                runId,
+                approvedArtifactId: artifactRow.id,
+                workspaceId: classifierWorkspaceId,
+                tenantId: classifierTenantId,
+                sessionId,
+                prd: draftPayload as Record<string, unknown>,
+              })
+              .catch((err) => {
+                console.error('Failed to enqueue classify job:', err);
+              });
+          } else {
+            // In-process fallback
+            runIntakeReadinessClassifier(
+              runId,
+              artifactRow.id,
+              classifierWorkspaceId,
+              classifierTenantId,
+              draftPayload as Record<string, unknown>,
+            )
+              .then(async (decision) => {
+                if (!decision) return;
 
-              // Build a human-readable classification message
-              const classLabel: Record<string, string> = {
-                DIRECT_TO_BUILD: 'Ready for Build',
-                NEEDS_ELABORATION: 'Needs Elaboration',
-                NEEDS_PLANNING: 'Needs Planning',
-                NEEDS_ELABORATION_AND_PLANNING: 'Needs Elaboration & Planning',
-                RETURN_TO_INTAKE: 'Return to Intake',
-              };
+                // Build a human-readable classification message
+                const classLabel: Record<string, string> = {
+                  DIRECT_TO_BUILD: 'Ready for Build',
+                  NEEDS_ELABORATION: 'Needs Elaboration',
+                  NEEDS_PLANNING: 'Needs Planning',
+                  NEEDS_ELABORATION_AND_PLANNING: 'Needs Elaboration & Planning',
+                  RETURN_TO_INTAKE: 'Return to Intake',
+                };
 
-              const emoji: Record<string, string> = {
-                DIRECT_TO_BUILD: '',
-                NEEDS_ELABORATION: '',
-                NEEDS_PLANNING: '',
-                NEEDS_ELABORATION_AND_PLANNING: '',
-                RETURN_TO_INTAKE: '',
-              };
+                const emoji: Record<string, string> = {
+                  DIRECT_TO_BUILD: '',
+                  NEEDS_ELABORATION: '',
+                  NEEDS_PLANNING: '',
+                  NEEDS_ELABORATION_AND_PLANNING: '',
+                  RETURN_TO_INTAKE: '',
+                };
 
-              const label = classLabel[decision.classification] || decision.classification;
-              const icon = emoji[decision.classification] || '';
+                const label = classLabel[decision.classification] || decision.classification;
+                const icon = emoji[decision.classification] || '';
 
-              let content = `## ${icon} Intake Readiness: ${label}\n\n`;
-              content += `**Build Readiness Score:** ${Math.round(decision.buildReadinessScore * 100)}% | **Confidence:** ${Math.round(decision.confidence * 100)}%\n\n`;
-              content += `${decision.reasoningSummary}\n\n`;
+                let content = `## ${icon} Intake Readiness: ${label}\n\n`;
+                content += `**Build Readiness Score:** ${Math.round(decision.buildReadinessScore * 100)}% | **Confidence:** ${Math.round(decision.confidence * 100)}%\n\n`;
+                content += `${decision.reasoningSummary}\n\n`;
 
-              if (decision.blockingQuestions.length > 0) {
-                content += `**Blocking Questions:**\n${decision.blockingQuestions.map((q) => `- ${q}`).join('\n')}\n\n`;
-              }
+                if (decision.blockingQuestions.length > 0) {
+                  content += `**Blocking Questions:**\n${decision.blockingQuestions.map((q) => `- ${q}`).join('\n')}\n\n`;
+                }
 
-              content += `**Next Stages:** ${decision.requiredNextStages.join(' → ')}\n\n`;
-              content += `---\n\n`;
-              content += `[Review Approved PRD](/review/${classifierWorkspaceId}/${sessionId})\n\n`;
-              content += `*Run ID: ${decision.runId}*`;
+                content += `**Next Stages:** ${decision.requiredNextStages.join(' → ')}\n\n`;
+                content += `---\n\n`;
+                content += `[Review Approved PRD](/review/${classifierWorkspaceId}/${sessionId})\n\n`;
+                content += `*Run ID: ${decision.runId}*`;
 
-              // Persist as a system message in the chat
-              const msgResult = await query(
-                `INSERT INTO intake_messages (session_id, role, content, persona)
+                // Persist as a system message in the chat
+                const msgResult = await query(
+                  `INSERT INTO intake_messages (session_id, role, content, persona)
                VALUES ($1, 'assistant', $2, 'Virtual Classifier')
                RETURNING id, session_id as "sessionId", role, content, persona,
                          tool_calls as "toolCalls", created_at as "createdAt"`,
-                [sessionId, content],
-              );
-
-              // Publish via subscription so the UI picks it up
-              if (msgResult.rows[0]) {
-                pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
-                  intakeMessageStream: msgResult.rows[0],
-                });
-              }
-
-              // Route based on classification
-              const routeMap: Record<string, string> = {
-                DIRECT_TO_BUILD: 'BUILDING',
-                NEEDS_ELABORATION: 'ELABORATING',
-                NEEDS_PLANNING: 'PLANNING',
-                NEEDS_ELABORATION_AND_PLANNING: 'ELABORATING',
-                RETURN_TO_INTAKE: 'ACTIVE',
-              };
-              const nextStatus = routeMap[decision.classification] || 'APPROVED';
-              await transitionWorkspace(classifierWorkspaceId, nextStatus, 'classifier', runId, {
-                classification: decision.classification,
-              });
-
-              // Auto-trigger build if DIRECT_TO_BUILD
-              if (decision.classification === 'DIRECT_TO_BUILD') {
-                const wsResult = await query(
-                  `SELECT repo_url FROM intake_workspaces WHERE id = $1`,
-                  [classifierWorkspaceId],
+                  [sessionId, content],
                 );
-                const repoUrl = wsResult.rows[0]?.repo_url;
-                if (repoUrl) {
-                  console.info(`[Builder] Auto-triggering build for run ${runId}...`);
-                  const buildStartMsg = await query(
-                    `INSERT INTO intake_messages (session_id, role, content, persona)
+
+                // Publish via subscription so the UI picks it up
+                if (msgResult.rows[0]) {
+                  pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
+                    intakeMessageStream: msgResult.rows[0],
+                  });
+                }
+
+                // Route based on classification
+                const routeMap: Record<string, string> = {
+                  DIRECT_TO_BUILD: 'BUILDING',
+                  NEEDS_ELABORATION: 'ELABORATING',
+                  NEEDS_PLANNING: 'PLANNING',
+                  NEEDS_ELABORATION_AND_PLANNING: 'ELABORATING',
+                  RETURN_TO_INTAKE: 'ACTIVE',
+                };
+                const nextStatus = routeMap[decision.classification] || 'APPROVED';
+                await transitionWorkspace(classifierWorkspaceId, nextStatus, 'classifier', runId, {
+                  classification: decision.classification,
+                });
+
+                // Auto-trigger build if DIRECT_TO_BUILD
+                if (decision.classification === 'DIRECT_TO_BUILD') {
+                  const wsResult = await query(
+                    `SELECT repo_url FROM intake_workspaces WHERE id = $1`,
+                    [classifierWorkspaceId],
+                  );
+                  const repoUrl = wsResult.rows[0]?.repo_url;
+                  if (repoUrl) {
+                    console.info(`[Builder] Auto-triggering build for run ${runId}...`);
+                    const buildStartMsg = await query(
+                      `INSERT INTO intake_messages (session_id, role, content, persona)
                      VALUES ($1, 'assistant', $2, 'Virtual Builder')
                      RETURNING id, session_id as "sessionId", role, content, persona,
                                tool_calls as "toolCalls", created_at as "createdAt"`,
-                    [
+                      [
+                        sessionId,
+                        `Build is now in progress. You'll be notified here when it's complete.`,
+                      ],
+                    );
+                    if (buildStartMsg.rows[0]) {
+                      pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
+                        intakeMessageStream: buildStartMsg.rows[0],
+                      });
+                    }
+                    executeBuild(
+                      runId,
+                      classifierWorkspaceId,
+                      classifierTenantId,
+                      artifactRow.id,
+                      decision.id,
+                      draftPayload as Record<string, unknown>,
+                      repoUrl,
                       sessionId,
-                      `Build is now in progress. You'll be notified here when it's complete.`,
-                    ],
-                  );
-                  if (buildStartMsg.rows[0]) {
-                    pubsub.publish(EVENTS.MESSAGE_STREAM(sessionId), {
-                      intakeMessageStream: buildStartMsg.rows[0],
+                    ).catch((buildErr) => {
+                      console.error('[Builder] Auto-triggered build failed:', buildErr);
+                      transitionWorkspace(classifierWorkspaceId, 'FAILED', 'builder', runId, {
+                        error: String(buildErr),
+                      }).catch(() => {});
                     });
                   }
-                  executeBuild(
-                    runId,
-                    classifierWorkspaceId,
-                    classifierTenantId,
-                    artifactRow.id,
-                    decision.id,
-                    draftPayload as Record<string, unknown>,
-                    repoUrl,
-                    sessionId,
-                  ).catch((buildErr) => {
-                    console.error('[Builder] Auto-triggered build failed:', buildErr);
-                    transitionWorkspace(classifierWorkspaceId, 'FAILED', 'builder', runId, {
-                      error: String(buildErr),
-                    }).catch(() => {});
-                  });
                 }
-              }
-            })
-            .catch((err) => {
-              console.error('Intake classifier failed (non-blocking):', err);
-            });
+              })
+              .catch((err) => {
+                console.error('Intake classifier failed (non-blocking):', err);
+              });
+          } // end else (in-process fallback)
         }
 
         return artifactRow;
