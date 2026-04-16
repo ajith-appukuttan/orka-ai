@@ -298,6 +298,84 @@ export const typeDefs = `#graphql
     confidence: Float!
   }
 
+  # ─── Figma Intake ──────────────────────────────────────
+  type FigmaDesignSession {
+    id: ID!
+    intakeWorkspaceId: ID!
+    figmaFileKey: String!
+    figmaFileUrl: String!
+    fileName: String
+    status: String!
+    extractedContext: JSON
+    errorMessage: String
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    frames: [FigmaFrame!]!
+    components: [FigmaComponent!]!
+    selections: [FigmaNodeSelection!]!
+  }
+
+  type FigmaFrame {
+    id: ID!
+    sessionId: ID!
+    nodeId: String!
+    name: String!
+    nodeType: String!
+    parentNodeId: String
+    pageName: String
+    width: Float
+    height: Float
+    thumbnailUrl: String
+    extractedText: JSON!
+    childComponents: JSON!
+    layoutInfo: JSON!
+  }
+
+  type FigmaComponent {
+    id: ID!
+    sessionId: ID!
+    nodeId: String!
+    name: String!
+    componentSetName: String
+    description: String
+    pageName: String
+    properties: JSON!
+  }
+
+  type FigmaNodeSelection {
+    id: ID!
+    sessionId: ID!
+    nodeId: String!
+    nodeType: String!
+    selectedAt: DateTime!
+  }
+
+  type FigmaRepoMapping {
+    id: ID!
+    sessionId: ID!
+    figmaComponentName: String!
+    filePath: String
+    symbolName: String
+    confidence: Float!
+    matchReason: String
+  }
+
+  type FigmaRequirement {
+    id: ID!
+    sessionId: ID!
+    intakeWorkspaceId: ID!
+    frameNodeId: String
+    title: String!
+    summary: String!
+    requirementType: String!
+    acceptanceCriteria: JSON!
+    codeTargetHints: JSON!
+    openQuestions: JSON!
+    confidence: Float!
+    status: String!
+    createdAt: DateTime
+  }
+
   # ─── Streaming ─────────────────────────────────────────
   type StreamingChunk {
     sessionId: ID!
@@ -351,6 +429,13 @@ export const typeDefs = `#graphql
     visualPreviewSession(id: ID!): VisualPreviewSession
     visualSelections(sessionId: ID!): [VisualSelection!]!
     visualRequirements(workspaceId: ID!): [VisualRequirement!]!
+
+    # Figma Intake queries
+    figmaDesignSession(sessionId: ID!): FigmaDesignSession
+    figmaFrames(sessionId: ID!): [FigmaFrame!]!
+    figmaComponents(sessionId: ID!): [FigmaComponent!]!
+    figmaRepoMappings(sessionId: ID!): [FigmaRepoMapping!]!
+    figmaRequirements(workspaceId: ID!): [FigmaRequirement!]!
   }
 
   # ═══════════════════════════════════════════════════════
@@ -492,6 +577,29 @@ export const typeDefs = `#graphql
       workspaceId: ID!
     ): AggregatedPRD!
 
+    # Figma Intake mutations
+    startFigmaIntake(
+      workspaceId: ID!
+      figmaUrl: String!
+    ): FigmaDesignSession!
+
+    selectFigmaNodes(
+      sessionId: ID!
+      nodeIds: [String!]!
+    ): [FigmaNodeSelection!]!
+
+    runFigmaRepoDiscovery(
+      sessionId: ID!
+    ): [FigmaRepoMapping!]!
+
+    generateFigmaRequirements(
+      sessionId: ID!
+    ): [FigmaRequirement!]!
+
+    generateFigmaPRD(
+      sessionId: ID!
+    ): IntakeDraftVersion!
+
     # Repository analysis mutations
     analyzeRepository(
       workspaceId: ID!
@@ -528,5 +636,6 @@ export const typeDefs = `#graphql
     intakeMemoryUpdated(workspaceId: ID!): IntakeMemoryItem!
     visualRequirementGenerated(workspaceId: ID!): VisualRequirement!
     visualRequirementUpdated(workspaceId: ID!): VisualRequirement!
+    figmaExtractionProgress(sessionId: ID!): FigmaDesignSession!
   }
 `;

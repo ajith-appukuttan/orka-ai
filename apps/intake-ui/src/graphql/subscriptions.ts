@@ -41,3 +41,16 @@ export const READINESS_UPDATED = gql`
     intakeReadinessUpdated(workspaceId: $workspaceId)
   }
 `;
+
+// ─── Figma Intake ──────────────────────────────────────
+export const FIGMA_EXTRACTION_PROGRESS = gql`
+  subscription FigmaExtractionProgress($sessionId: ID!) {
+    figmaExtractionProgress(sessionId: $sessionId) {
+      id
+      status
+      fileName
+      extractedContext
+      errorMessage
+    }
+  }
+`;

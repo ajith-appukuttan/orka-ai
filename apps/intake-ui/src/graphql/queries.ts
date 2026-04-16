@@ -138,3 +138,75 @@ export const SEARCH_INTAKE = gql`
     }
   }
 `;
+
+// ─── Figma Intake Queries ──────────────────────────────
+export const GET_FIGMA_SESSION = gql`
+  query GetFigmaSession($sessionId: ID!) {
+    figmaDesignSession(sessionId: $sessionId) {
+      id
+      intakeWorkspaceId
+      figmaFileKey
+      figmaFileUrl
+      fileName
+      status
+      extractedContext
+      errorMessage
+      createdAt
+      frames {
+        id
+        nodeId
+        name
+        nodeType
+        pageName
+        width
+        height
+        thumbnailUrl
+      }
+      components {
+        id
+        nodeId
+        name
+        componentSetName
+        description
+        pageName
+      }
+      selections {
+        id
+        nodeId
+        nodeType
+        selectedAt
+      }
+    }
+  }
+`;
+
+export const GET_FIGMA_REPO_MAPPINGS = gql`
+  query GetFigmaRepoMappings($sessionId: ID!) {
+    figmaRepoMappings(sessionId: $sessionId) {
+      id
+      figmaComponentName
+      filePath
+      symbolName
+      confidence
+      matchReason
+    }
+  }
+`;
+
+export const GET_FIGMA_REQUIREMENTS = gql`
+  query GetFigmaRequirements($workspaceId: ID!) {
+    figmaRequirements(workspaceId: $workspaceId) {
+      id
+      frameNodeId
+      title
+      summary
+      requirementType
+      acceptanceCriteria
+      codeTargetHints
+      openQuestions
+      confidence
+      status
+      createdAt
+    }
+  }
+`;

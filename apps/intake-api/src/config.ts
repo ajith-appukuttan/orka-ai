@@ -29,6 +29,11 @@ export const config = {
     url: process.env.MCP_GATEWAY_URL || 'http://localhost:4001',
   },
 
+  // Figma MCP Server
+  figmaMcp: {
+    url: process.env.FIGMA_MCP_URL || 'http://localhost:4003',
+  },
+
   // CORS
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
 };

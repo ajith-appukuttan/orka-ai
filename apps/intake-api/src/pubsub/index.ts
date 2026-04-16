@@ -127,4 +127,6 @@ export const EVENTS = {
   VISUAL_REQUIREMENT_GENERATED: (workspaceId: string) =>
     `VISUAL_REQUIREMENT_GENERATED_${workspaceId}`,
   VISUAL_REQUIREMENT_UPDATED: (workspaceId: string) => `VISUAL_REQUIREMENT_UPDATED_${workspaceId}`,
+  // Figma intake events
+  FIGMA_EXTRACTION_PROGRESS: (sessionId: string) => `FIGMA_EXTRACTION_PROGRESS_${sessionId}`,
 };

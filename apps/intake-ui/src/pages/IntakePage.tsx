@@ -19,6 +19,7 @@ import { ReadinessIndicator } from '../components/draft/ReadinessIndicator';
 import { WelcomeScreen } from '../components/chat/WelcomeScreen';
 import { VisualIntakePanel } from '../components/visual/VisualIntakePanel';
 import { VisualRequirementsList } from '../components/visual/VisualRequirementsList';
+import { FigmaIntakePanel } from '../components/figma/FigmaIntakePanel';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ResizeHandle } from '../components/layout/ResizeHandle';
 import { useWorkspaces } from '../hooks/useWorkspaces';
@@ -28,6 +29,7 @@ import { useDraft } from '../hooks/useDraft';
 import { useMemory } from '../hooks/useMemory';
 import { useSearch } from '../hooks/useSearch';
 import { useVisualIntake } from '../hooks/useVisualIntake';
+import { useFigmaIntake } from '../hooks/useFigmaIntake';
 import { useTheme } from '../hooks/useTheme';
 
 const ANALYZE_REPO = gql`
@@ -43,7 +45,7 @@ const ANALYZE_REPO = gql`
   }
 `;
 
-type IntakeMode = 'chat' | 'visual';
+type IntakeMode = 'chat' | 'visual' | 'figma';
 
 const MIN_PANEL_WIDTH = 280;
 const SIDEBAR_WIDTH = 320;
@@ -74,6 +76,7 @@ export function IntakePage() {
   const [analyzeRepoMutation] = useMutation(ANALYZE_REPO);
   const { results: searchResults, loading: searchLoading, search } = useSearch(TENANT_ID);
   const visual = useVisualIntake(activeWorkspaceId);
+  const figma = useFigmaIntake(activeWorkspaceId);
   const extension = useExtensionBridge();
 
   // Derive active workspace status and classification for pipeline stepper
@@ -514,6 +517,7 @@ export function IntakePage() {
                   data={[
                     { label: 'Chat', value: 'chat' },
                     { label: 'Visual', value: 'visual' },
+                    { label: 'Figma', value: 'figma' },
                   ]}
                 />
               </Group>
@@ -629,6 +633,31 @@ export function IntakePage() {
                   onDoneVisual={handleDoneVisual}
                   requirements={visual.requirements}
                 />
+              </Box>
+
+              {/* Figma panel — hidden when not in figma mode */}
+              <Box
+                flex={intakeMode === 'figma' ? 1 : undefined}
+                style={{
+                  overflow: 'hidden',
+                  display: intakeMode === 'figma' ? undefined : 'none',
+                }}
+              >
+                {activeWorkspaceId && (
+                  <FigmaIntakePanel
+                    workspaceId={activeWorkspaceId}
+                    session={figma.session}
+                    isLoading={figma.isLoading}
+                    isExtracting={figma.isExtracting}
+                    onStartIntake={figma.startIntake}
+                    onSelectNodes={figma.selectNodes}
+                    onRunRepoDiscovery={figma.runRepoDiscovery}
+                    onGenerateRequirements={figma.generateRequirements}
+                    onGeneratePRD={figma.generatePRD}
+                    requirements={figma.requirements}
+                    repoMappings={figma.repoMappings}
+                  />
+                )}
               </Box>
             </Group>
           </Stack>

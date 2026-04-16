@@ -121,6 +121,17 @@ services:
       PORT: '4001'
       GH_TOKEN: ${GH_TOKEN:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      FIGMA_MCP_URL: http://figma-mcp:4003
+
+  # Figma MCP Server — external Figma MCP server for design extraction
+  # Requires FIGMA_PERSONAL_ACCESS_TOKEN to be set
+  # figma-mcp:
+  #   image: ghcr.io/anthropic/figma-mcp:latest  # TODO: replace with actual image
+  #   ports:
+  #     - '4003:4003'
+  #   environment:
+  #     PORT: '4003'
+  #     FIGMA_PERSONAL_ACCESS_TOKEN: ${FIGMA_PERSONAL_ACCESS_TOKEN:-}
 
   # preview-browser runs locally (not in Docker) so Chrome opens visibly on the host.
   # Start it with: PORT=4002 pnpm --filter @orka/preview-browser dev

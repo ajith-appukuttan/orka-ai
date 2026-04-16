@@ -10,6 +10,7 @@ import { repoResolvers } from './repo.js';
 import { classificationResolvers } from './classification.js';
 import { buildResolvers } from './build.js';
 import { summaryResolvers } from './summary.js';
+import { figmaResolvers } from './figma.js';
 
 export const resolvers = {
   Query: {
@@ -23,6 +24,7 @@ export const resolvers = {
     ...repoResolvers.Query,
     ...classificationResolvers.Query,
     ...buildResolvers.Query,
+    ...figmaResolvers.Query,
   },
   Mutation: {
     ...workspaceResolvers.Mutation,
@@ -35,12 +37,14 @@ export const resolvers = {
     ...repoResolvers.Mutation,
     ...buildResolvers.Mutation,
     ...summaryResolvers.Mutation,
+    ...figmaResolvers.Mutation,
   },
   Subscription: {
     ...messageResolvers.Subscription,
     ...draftResolvers.Subscription,
     ...memoryResolvers.Subscription,
     ...visualResolvers.Subscription,
+    ...figmaResolvers.Subscription,
   },
   // Type resolvers
   IntakeWorkspace: {
@@ -50,4 +54,5 @@ export const resolvers = {
   },
   IntakeSession: sessionResolvers.IntakeSession,
   BuildRun: buildResolvers.BuildRun,
+  FigmaDesignSession: figmaResolvers.FigmaDesignSession,
 };

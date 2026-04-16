@@ -83,6 +83,70 @@ export const GENERATE_CHAT_SUMMARY = gql`
   }
 `;
 
+// ─── Figma Intake ──────────────────────────────────────
+export const START_FIGMA_INTAKE = gql`
+  mutation StartFigmaIntake($workspaceId: ID!, $figmaUrl: String!) {
+    startFigmaIntake(workspaceId: $workspaceId, figmaUrl: $figmaUrl) {
+      id
+      figmaFileKey
+      figmaFileUrl
+      fileName
+      status
+    }
+  }
+`;
+
+export const SELECT_FIGMA_NODES = gql`
+  mutation SelectFigmaNodes($sessionId: ID!, $nodeIds: [String!]!) {
+    selectFigmaNodes(sessionId: $sessionId, nodeIds: $nodeIds) {
+      id
+      nodeId
+      nodeType
+    }
+  }
+`;
+
+export const RUN_FIGMA_REPO_DISCOVERY = gql`
+  mutation RunFigmaRepoDiscovery($sessionId: ID!) {
+    runFigmaRepoDiscovery(sessionId: $sessionId) {
+      id
+      figmaComponentName
+      filePath
+      symbolName
+      confidence
+      matchReason
+    }
+  }
+`;
+
+export const GENERATE_FIGMA_REQUIREMENTS = gql`
+  mutation GenerateFigmaRequirements($sessionId: ID!) {
+    generateFigmaRequirements(sessionId: $sessionId) {
+      id
+      title
+      summary
+      requirementType
+      acceptanceCriteria
+      codeTargetHints
+      confidence
+      status
+    }
+  }
+`;
+
+export const GENERATE_FIGMA_PRD = gql`
+  mutation GenerateFigmaPRD($sessionId: ID!) {
+    generateFigmaPRD(sessionId: $sessionId) {
+      id
+      intakeWorkspaceId
+      version
+      draftJson
+      readinessScore
+      readyForReview
+    }
+  }
+`;
+
 // ─── Approval ──────────────────────────────────────────
 export const APPROVE_DRAFT = gql`
   mutation ApproveDraft($sessionId: ID!, $approvedBy: String!) {
