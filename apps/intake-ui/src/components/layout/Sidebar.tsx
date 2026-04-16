@@ -33,6 +33,7 @@ interface SidebarWorkspace {
   title: string;
   status: string;
   readinessScore: number | null;
+  statusChangedAt: string;
   updatedAt: string;
   sessions: SidebarSession[];
   latestClassification?: SidebarClassification | null;
@@ -341,18 +342,105 @@ export function Sidebar({
                   <NavLink
                     label={
                       <Group gap={6} wrap="nowrap">
-                        <Text
-                          size="sm"
-                          truncate
-                          fw={isActiveWs ? 600 : 400}
-                          style={{ flex: 1 }}
-                        >
+                        <Text size="sm" truncate fw={isActiveWs ? 600 : 400} style={{ flex: 1 }}>
                           {ws.title}
                         </Text>
-                        {/* '+' (CREATE SESSION) BUTTON — inside workspace NavLink label.
-                         * Handler: onNewSession(ws.id) — prop from parent.
-                         * Parent component triggers GraphQL CREATE_SESSION mutation.
-                         * e.stopPropagation() prevents NavLink expand/collapse toggle. */}
+                        {(() => {
+                          const buildingMinutes =
+                            ws.status === 'BUILDING' && ws.statusChangedAt
+                              ? (Date.now() - new Date(ws.statusChangedAt).getTime()) / 60_000
+                              : 0;
+                          const isBuildStuck = ws.status === 'BUILDING' && buildingMinutes > 5;
+                          const statusBadge: Record<string, { label: string; color: string }> = {
+                            CLASSIFYING: { label: 'Classifying', color: 'yellow' },
+                            ELABORATING: { label: 'Elaborating', color: 'yellow' },
+                            PLANNING: { label: 'Planning', color: 'blue' },
+                            BUILDING: isBuildStuck
+                              ? { label: 'Stuck?', color: 'red' }
+                              : { label: 'Building', color: 'teal' },
+                            BUILT: { label: 'PR Ready', color: 'teal' },
+                            FAILED: { label: 'Failed', color: 'red' },
+                          };
+                          const badge = statusBadge[ws.status];
+                          if (badge) {
+                            return (
+                              <Badge
+                                size="xs"
+                                variant="filled"
+                                color={badge.color}
+                                styles={{ root: { fontSize: 9, textTransform: 'uppercase' } }}
+                              >
+                                {badge.label}
+                              </Badge>
+                            );
+                          }
+                          if (ws.latestClassification) {
+                            const classMap: Record<string, { label: string; color: string }> = {
+                              DIRECT_TO_BUILD: { label: 'Build', color: 'teal' },
+                              NEEDS_ELABORATION: { label: 'Elaboration', color: 'yellow' },
+                              NEEDS_PLANNING: { label: 'Planning', color: 'blue' },
+                              NEEDS_ELABORATION_AND_PLANNING: {
+                                label: 'Elab+Plan',
+                                color: 'orange',
+                              },
+                              RETURN_TO_INTAKE: { label: 'Intake', color: 'red' },
+                            };
+                            const cls = classMap[ws.latestClassification.classification];
+                            if (cls) {
+                              return (
+                                <Badge
+                                  size="xs"
+                                  variant="filled"
+                                  color={cls.color}
+                                  styles={{ root: { fontSize: 9, textTransform: 'uppercase' } }}
+                                >
+                                  {cls.label}
+                                </Badge>
+                              );
+                            }
+                          }
+                          if (ws.readinessScore !== null && ws.readinessScore > 0) {
+                            return (
+                              <Badge
+                                size="xs"
+                                variant="dot"
+                                color={ws.readinessScore >= 0.8 ? 'teal' : 'blue'}
+                              >
+                                {Math.round(ws.readinessScore * 100)}%
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </Group>
+                    }
+                    description={formatTime(ws.updatedAt)}
+                    opened={isExpanded}
+                    onClick={() => {
+                      toggleWorkspace(ws.id);
+                      // If workspace has sessions, select the first one
+                      if (ws.sessions.length > 0 && !isActiveWs) {
+                        onSelectSession(ws.id, ws.sessions[0].id);
+                      }
+                    }}
+                    active={false}
+                    variant="subtle"
+                    styles={{
+                      root: { borderRadius: 0, padding: '6px 12px', paddingRight: 56 },
+                      label: { fontSize: 13 },
+                      description: { fontSize: 11 },
+                    }}
+                  >
+                    {/* Workspace action buttons — always visible */}
+                    <Group
+                      gap={2}
+                      style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: 8,
+                      }}
+                    >
+                      <Tooltip label="New session">
                         <ActionIcon
                           size="xs"
                           variant="subtle"
@@ -364,10 +452,8 @@ export function Sidebar({
                         >
                           +
                         </ActionIcon>
-                        {/* '×' (DELETE/ARCHIVE WORKSPACE) BUTTON — inside workspace NavLink label.
-                         * Handler: onArchiveWorkspace?.(ws.id) — optional prop from parent.
-                         * Parent component triggers GraphQL ARCHIVE_WORKSPACE mutation.
-                         * e.stopPropagation() prevents NavLink expand/collapse toggle. */}
+                      </Tooltip>
+                      <Tooltip label="Archive workspace">
                         <ActionIcon
                           size="xs"
                           variant="subtle"
@@ -379,20 +465,8 @@ export function Sidebar({
                         >
                           ×
                         </ActionIcon>
-                      </Group>
-                    }
-                    description={
-                      <Text size="xs" c="dimmed" style={{ fontSize: 10 }}>
-                        {formatTime(ws.updatedAt)}
-                      </Text>
-                    }
-                    opened={isExpanded}
-                    onClick={() => toggleWorkspace(ws.id)}
-                    variant="subtle"
-                    styles={{
-                      root: { borderRadius: 0, padding: '6px 12px' },
-                    }}
-                  >
+                      </Tooltip>
+                    </Group>
                     {/* Collapse children: session list */}
                     {ws.sessions.map((session) => {
                       const isActiveSession = session.id === activeSessionId;
@@ -427,7 +501,11 @@ export function Sidebar({
                           onClick={() => onSelectSession(ws.id, session.id)}
                           variant="subtle"
                           styles={{
-                            root: { borderRadius: 0, paddingLeft: 24, padding: '4px 12px 4px 24px' },
+                            root: {
+                              borderRadius: 0,
+                              paddingLeft: 24,
+                              padding: '4px 12px 4px 24px',
+                            },
                           }}
                         />
                       );

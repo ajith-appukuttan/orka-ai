@@ -9,6 +9,7 @@ export const GET_WORKSPACES = gql`
       title
       status
       readinessScore
+      statusChangedAt
       createdAt
       updatedAt
       sessions {

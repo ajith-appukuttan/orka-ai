@@ -11,6 +11,7 @@ export const workspaceResolvers = {
                 repo_default_branch as "repoDefaultBranch",
                 repo_status as "repoStatus",
                 created_by as "createdBy",
+                status_changed_at as "statusChangedAt",
                 created_at as "createdAt", updated_at as "updatedAt"
          FROM intake_workspaces
          WHERE tenant_id = $1 AND status != 'ARCHIVED'
@@ -29,6 +30,7 @@ export const workspaceResolvers = {
                 repo_default_branch as "repoDefaultBranch",
                 repo_status as "repoStatus",
                 created_by as "createdBy",
+                status_changed_at as "statusChangedAt",
                 created_at as "createdAt", updated_at as "updatedAt"
          FROM intake_workspaces WHERE id = $1`,
         [workspaceId],
@@ -49,6 +51,7 @@ export const workspaceResolvers = {
                    latest_draft_id as "latestDraftId",
                    latest_summary_id as "latestSummaryId",
                    created_by as "createdBy",
+                   status_changed_at as "statusChangedAt",
                    created_at as "createdAt", updated_at as "updatedAt"`,
         [tenantId, title, createdBy],
       );
@@ -66,6 +69,7 @@ export const workspaceResolvers = {
                    latest_draft_id as "latestDraftId",
                    latest_summary_id as "latestSummaryId",
                    created_by as "createdBy",
+                   status_changed_at as "statusChangedAt",
                    created_at as "createdAt", updated_at as "updatedAt"`,
         [title, workspaceId],
       );
@@ -80,6 +84,7 @@ export const workspaceResolvers = {
                    latest_draft_id as "latestDraftId",
                    latest_summary_id as "latestSummaryId",
                    created_by as "createdBy",
+                   status_changed_at as "statusChangedAt",
                    created_at as "createdAt", updated_at as "updatedAt"`,
         [workspaceId],
       );

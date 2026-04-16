@@ -1,3 +1,4 @@
+import type { Job } from 'bullmq';
 import { query, getClient } from '../../db/pool.js';
 import {
   createWorktree,
@@ -48,6 +49,7 @@ export async function executeBuild(
   prd: Record<string, unknown>,
   repoUrl: string,
   sessionId?: string,
+  job?: Job,
 ): Promise<BuildResult | null> {
   console.info(`[Builder] Starting build for run ${runId}...`);
 
@@ -78,6 +80,7 @@ export async function executeBuild(
     );
 
     executionLog.push({ step: 'worktree_created', worktree, timestamp: new Date().toISOString() });
+    await job?.updateProgress(10);
 
     // Step 2: Load skills
     console.info(`[Builder] Loading Claude skills...`);
@@ -155,6 +158,7 @@ export async function executeBuild(
     ]);
 
     console.info(`[Builder] ${tasks.length} tasks planned`);
+    await job?.updateProgress(20);
     executionLog.push({
       step: 'tasks_planned',
       taskCount: tasks.length,
@@ -203,6 +207,7 @@ export async function executeBuild(
             noChanges: true,
             timestamp: new Date().toISOString(),
           });
+          await job?.updateProgress(20 + Math.round((80 * completedCount) / tasks.length));
           continue;
         }
 
@@ -281,6 +286,7 @@ export async function executeBuild(
           reviewScore: review.score,
           timestamp: new Date().toISOString(),
         });
+        await job?.updateProgress(20 + Math.round((80 * completedCount) / tasks.length));
       } catch (taskErr) {
         failedCount++;
         const errMsg = taskErr instanceof Error ? taskErr.message : String(taskErr);
@@ -303,6 +309,9 @@ export async function executeBuild(
           error: errMsg,
           timestamp: new Date().toISOString(),
         });
+        await job?.updateProgress(
+          20 + Math.round((80 * (completedCount + failedCount)) / tasks.length),
+        );
       }
     }
 
@@ -440,13 +449,21 @@ export async function executeBuild(
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error(`[Builder] Build failed for run ${runId}:`, errMsg);
 
-    await query(
-      `UPDATE build_runs SET status = 'FAILED', summary = $1, completed_at = NOW(), updated_at = NOW()
-       WHERE id = $2`,
-      [`Build failed: ${errMsg}`, buildRunId],
-    );
+    try {
+      await query(
+        `UPDATE build_runs SET status = 'FAILED', summary = $1, completed_at = NOW(), updated_at = NOW()
+         WHERE id = $2`,
+        [`Build failed: ${errMsg}`, buildRunId],
+      );
+    } catch (dbErr) {
+      console.error(`[Builder] Failed to update build_runs for ${runId}:`, dbErr);
+    }
 
-    await transitionWorkspace(workspaceId, 'FAILED', 'builder', runId, { error: errMsg });
+    try {
+      await transitionWorkspace(workspaceId, 'FAILED', 'builder', runId, { error: errMsg });
+    } catch (transitionErr) {
+      console.error(`[Builder] Failed to transition workspace for ${runId}:`, transitionErr);
+    }
 
     return null;
   }

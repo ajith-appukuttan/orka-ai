@@ -1,17 +1,10 @@
 import type { Job } from 'bullmq';
-import { Queue } from 'bullmq';
 
 import { runIntakeReadinessClassifier } from '../../../intake-api/src/agents/intakeReadinessClassifier.js';
 import { transitionWorkspace } from '../../../intake-api/src/services/pipelineTransition.js';
 import { query } from '../../../intake-api/src/db/pool.js';
 import { pubsub, EVENTS } from '../../../intake-api/src/pubsub/index.js';
-
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-function parseRedisUrl(url: string) {
-  const parsed = new URL(url);
-  return { host: parsed.hostname, port: parseInt(parsed.port || '6379', 10) };
-}
-const buildQueue = new Queue('orka-build', { connection: parseRedisUrl(REDIS_URL) });
+import { buildQueue } from '../../../intake-api/src/jobs/queues.js';
 
 export interface ClassifyData {
   runId: string;
