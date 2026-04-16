@@ -148,6 +148,13 @@ export const typeDefs = `#graphql
     createdAt: DateTime!
   }
 
+  # ─── Chat Summary (on-demand, cross-persona) ─────────
+  type ChatSummary {
+    workspaceId: ID!
+    summaryMarkdown: String!
+    generatedAt: DateTime!
+  }
+
   # ─── Approved Artifact ────────────────────────────────
   type ApprovedArtifact {
     id: ID!
@@ -496,6 +503,11 @@ export const typeDefs = `#graphql
       workspaceId: ID!
       requirementIds: [ID!]
     ): [CodeTargetMapping!]!
+
+    # Chat summary (on-demand, cross-persona)
+    generateChatSummary(
+      workspaceId: ID!
+    ): ChatSummary!
 
     # Build mutations
     triggerBuild(

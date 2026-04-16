@@ -25,6 +25,7 @@ const memoryCuratorPrompt = loadPrompt('memory-curator.md');
 const visualIntakePrompt = loadPrompt('visual-intake.md');
 const repoAnalyzerPrompt = loadPrompt('repo-analyzer.md');
 const intakeClassifierPrompt = loadPrompt('intake-readiness-classifier.md');
+const chatSummaryPrompt = loadPrompt('chat-summary.md');
 
 /**
  * Generic prompt-based generation for builder agents.
@@ -428,4 +429,68 @@ Evaluate this PRD and return the classification JSON. Consider the precheck resu
 
   const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
   return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '{}';
+}
+
+export interface ChatSummaryMessage {
+  role: string;
+  content: string;
+  persona: string | null;
+  sessionTitle: string;
+  createdAt: string;
+}
+
+/**
+ * Generate an on-demand cross-persona chat summary for a workspace.
+ */
+export async function generateChatSummary(
+  messages: ChatSummaryMessage[],
+  currentDraft: Record<string, unknown>,
+  workspaceStatus: string,
+  readinessScore: number,
+): Promise<string> {
+  const parts: string[] = [];
+
+  parts.push(
+    `## Workspace Status: ${workspaceStatus} | Readiness: ${Math.round(readinessScore * 100)}%`,
+  );
+
+  if (Object.keys(currentDraft).length > 0) {
+    parts.push(
+      `## Current Draft PRD\n\n\`\`\`json\n${JSON.stringify(currentDraft, null, 2)}\n\`\`\``,
+    );
+  }
+
+  // Group messages by session for readability
+  const bySession = new Map<string, ChatSummaryMessage[]>();
+  for (const msg of messages) {
+    const key = msg.sessionTitle;
+    if (!bySession.has(key)) bySession.set(key, []);
+    bySession.get(key)!.push(msg);
+  }
+
+  const transcriptParts: string[] = [];
+  for (const [sessionTitle, sessionMsgs] of bySession) {
+    transcriptParts.push(`### Session: ${sessionTitle}`);
+    for (const msg of sessionMsgs) {
+      const speaker = msg.role === 'user' ? 'User' : (msg.persona ?? 'Assistant');
+      const timestamp = new Date(msg.createdAt).toLocaleString();
+      // Truncate very long messages to keep token count manageable
+      const content =
+        msg.content.length > 1000 ? msg.content.substring(0, 1000) + '...[truncated]' : msg.content;
+      transcriptParts.push(`**[${timestamp}] ${speaker}**: ${content}`);
+    }
+  }
+
+  parts.push(`## Full Conversation Transcript\n\n${transcriptParts.join('\n\n')}`);
+  parts.push('Generate a comprehensive cross-persona chat summary based on the above.');
+
+  const response = await client.messages.create({
+    model: config.vertex.model,
+    max_tokens: 2048,
+    system: chatSummaryPrompt,
+    messages: [{ role: 'user', content: parts.join('\n\n') }],
+  });
+
+  const textBlock = response.content.find((block: { type: string }) => block.type === 'text');
+  return (textBlock && 'text' in textBlock ? textBlock.text : undefined) ?? '';
 }

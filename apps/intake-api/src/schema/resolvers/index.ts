@@ -9,6 +9,7 @@ import { visualResolvers } from './visual.js';
 import { repoResolvers } from './repo.js';
 import { classificationResolvers } from './classification.js';
 import { buildResolvers } from './build.js';
+import { summaryResolvers } from './summary.js';
 
 export const resolvers = {
   Query: {
@@ -33,6 +34,7 @@ export const resolvers = {
     ...visualResolvers.Mutation,
     ...repoResolvers.Mutation,
     ...buildResolvers.Mutation,
+    ...summaryResolvers.Mutation,
   },
   Subscription: {
     ...messageResolvers.Subscription,
