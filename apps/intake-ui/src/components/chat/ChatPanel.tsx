@@ -1,6 +1,8 @@
-import { Stack, Box, Paper, Text, Group } from '@mantine/core';
+import { useState } from 'react';
+import { Stack, Box, Paper, Text, Group, Tooltip, ActionIcon } from '@mantine/core';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
+import { ChatSummaryModal } from './ChatSummaryModal';
 import { PipelineStepper } from '../pipeline/PipelineStepper';
 import { useTheme } from '../../hooks/useTheme';
 import { getBotName } from '../../utils/botName';
@@ -23,6 +25,7 @@ interface ChatPanelProps {
   classification?: string | null;
   runId?: string | null;
   statusChangedAt?: string;
+  workspaceId?: string | null;
 }
 
 export function ChatPanel({
@@ -36,8 +39,10 @@ export function ChatPanel({
   classification,
   runId,
   statusChangedAt,
+  workspaceId,
 }: ChatPanelProps) {
   const { themedColor, contentMaxWidth } = useTheme();
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const pct = Math.round(readinessScore * 100);
   const isReady = readinessScore >= 0.8;
@@ -76,11 +81,37 @@ export function ChatPanel({
               {botName}
             </Text>
           </Group>
-          {runId && (
-            <Text size="xs" fw={600} ff="monospace" style={{ color: themedColor('chatAccent') }}>
-              {runId}
-            </Text>
-          )}
+          <Group gap={8}>
+            {runId && (
+              <Text size="xs" fw={600} ff="monospace" style={{ color: themedColor('chatAccent') }}>
+                {runId}
+              </Text>
+            )}
+            <Tooltip label="Summarize conversation">
+              <ActionIcon
+                size="sm"
+                variant="subtle"
+                color="gray"
+                onClick={() => setSummaryOpen(true)}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="17" y1="10" x2="3" y2="10" />
+                  <line x1="21" y1="6" x2="3" y2="6" />
+                  <line x1="21" y1="14" x2="3" y2="14" />
+                  <line x1="17" y1="18" x2="3" y2="18" />
+                </svg>
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Group>
       </Box>
 
@@ -199,6 +230,12 @@ export function ChatPanel({
           </Text>
         </Box>
       </Box>
+
+      <ChatSummaryModal
+        workspaceId={workspaceId ?? null}
+        opened={summaryOpen}
+        onClose={() => setSummaryOpen(false)}
+      />
     </Stack>
   );
 }

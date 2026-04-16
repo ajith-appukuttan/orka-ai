@@ -72,6 +72,17 @@ export const EDIT_DRAFT = gql`
   }
 `;
 
+// ─── Chat Summary ──────────────────────────────────────
+export const GENERATE_CHAT_SUMMARY = gql`
+  mutation GenerateChatSummary($workspaceId: ID!) {
+    generateChatSummary(workspaceId: $workspaceId) {
+      workspaceId
+      summaryMarkdown
+      generatedAt
+    }
+  }
+`;
+
 // ─── Approval ──────────────────────────────────────────
 export const APPROVE_DRAFT = gql`
   mutation ApproveDraft($sessionId: ID!, $approvedBy: String!) {
